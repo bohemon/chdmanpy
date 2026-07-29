@@ -1,0 +1,5 @@
+test/
+input/
+output/
+.agents/
+chdman.exe
