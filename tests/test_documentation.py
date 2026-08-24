@@ -161,6 +161,7 @@ def test_readmes_describe_the_packaged_pipeline_interface() -> None:
         assert "ZIP files in advance" not in text
         assert "unzip_zip_files" not in text
         assert "_extracted" not in text
+        assert "release-notes-0.1.0.md" in text
 
 
 def test_metadata_readme_uses_absolute_links_for_pypi() -> None:
@@ -168,3 +169,27 @@ def test_metadata_readme_uses_absolute_links_for_pypi() -> None:
     targets = LINK_RE.findall(text)
     assert targets
     assert all(target.startswith("https://") for target in targets)
+
+
+def test_release_notes_cover_release_contract_and_legacy_examples_are_removed() -> None:
+    release_notes = (ROOT / "docs" / "release-notes-0.1.0.md").read_text(
+        encoding="utf-8"
+    )
+    required_terms = (
+        "chdmanpy 0.1.0",
+        "Windows and Linux",
+        "Python 3.11",
+        "python chdmanpy.py",
+        "[options]",
+        "ArcShuttle",
+        "external prerequisite",
+        "without destructively overwriting",
+        "Limitations",
+        "hatch run check",
+        "hatch build",
+        "required",
+    )
+    missing = [term for term in required_terms if term not in release_notes]
+    assert not missing, f"release notes omit required terms: {missing}"
+    for filename in ("others.toml", "ps2.toml", "psp.toml"):
+        assert not (ROOT / filename).exists(), f"legacy root preset remains: {filename}"

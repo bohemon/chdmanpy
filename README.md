@@ -53,3 +53,4 @@ pipeline when the ArcShuttle process exit must also be verified.
 - [ArcShuttle schema-v2 ingestion](https://github.com/bohemon/chdmanpy/blob/main/docs/arcshuttle-schema-v2.md)
   ([日本語](https://github.com/bohemon/chdmanpy/blob/main/docs/arcshuttle-schema-v2.ja.md))
 - [Testing](https://github.com/bohemon/chdmanpy/blob/main/docs/testing.md)
+- [0.1.0 release notes](https://github.com/bohemon/chdmanpy/blob/main/docs/release-notes-0.1.0.md)

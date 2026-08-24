@@ -569,6 +569,20 @@ def test_keyboard_interrupt_before_execution_maps_to_130_without_traceback(
     assert "Traceback" not in captured.err
 
 
+def test_windows_ctrl_break_uses_keyboard_interrupt_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    break_signal = object()
+    signal_install = Mock()
+    monkeypatch.setattr(cli.os, "name", "nt")
+    monkeypatch.setattr(cli.signal, "SIGBREAK", break_signal, raising=False)
+    monkeypatch.setattr(cli.signal, "signal", signal_install)
+
+    cli._configure_interrupt_handling()
+
+    signal_install.assert_called_once_with(break_signal, cli.signal.default_int_handler)
+
+
 def test_interrupted_run_emits_complete_result_stream_with_exit_130(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

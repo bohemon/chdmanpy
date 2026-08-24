@@ -1,7 +1,8 @@
 # chdmanpy usage・移行guide
 
 [English](usage.md) · [README](../README.ja.md) ·
-[JSON Lines schema v1](schema-v1.md)
+[JSON Lines schema v1](schema-v1.md) ·
+[0.1.0 release notes](release-notes-0.1.0.md)
 
 ## installとruntime要件
 

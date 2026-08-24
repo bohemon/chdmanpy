@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -373,9 +374,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         return int(ExitCode.INTERRUPTED)
 
 
+def _configure_interrupt_handling() -> None:
+    if os.name == "nt":
+        signal.signal(signal.SIGBREAK, signal.default_int_handler)
+
+
 def entrypoint() -> int:
     """Console-script entry point."""
 
+    _configure_interrupt_handling()
     stdout_reconfigure = getattr(sys.stdout, "reconfigure", None)
     if stdout_reconfigure is not None:
         stdout_reconfigure(encoding="utf-8", errors="strict", newline="\n")
