@@ -76,6 +76,8 @@ packages = ["src/chdmanpy"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "docs" = "chdmanpy/docs"
+"README.md" = "chdmanpy/README.md"
+"README.ja.md" = "chdmanpy/README.ja.md"
 
 [tool.hatch.envs.default]
 dependencies = [

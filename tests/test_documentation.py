@@ -16,6 +16,32 @@ DOCUMENTS = (
 )
 USAGE_DOCUMENTS = (ROOT / "docs" / "usage.md", ROOT / "docs" / "usage.ja.md")
 LINK_RE = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
+DOCUMENTED_EXAMPLES = (
+    (
+        "chdmanpy plan ./input --output-dir ./chd --preset ps2 >jobs.jsonl",
+        ["plan", "./input", "--output-dir", "./chd", "--preset", "ps2"],
+    ),
+    (
+        "chdmanpy run --manifest jobs.jsonl >results.jsonl",
+        ["run", "--manifest", "jobs.jsonl"],
+    ),
+    (
+        "chdmanpy convert ./input --output-dir ./chd --preset ps2 >results.jsonl",
+        ["convert", "./input", "--output-dir", "./chd", "--preset", "ps2"],
+    ),
+    (
+        "chdmanpy convert --arcshuttle-results - --output-dir ./chd --preset ps2",
+        [
+            "convert",
+            "--arcshuttle-results",
+            "-",
+            "--output-dir",
+            "./chd",
+            "--preset",
+            "ps2",
+        ],
+    ),
+)
 
 
 def _public_options(parser: argparse.ArgumentParser) -> set[str]:
@@ -68,7 +94,7 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
         "```bash\nset -o pipefail",
         "$chdmanpyStatus = $LASTEXITCODE",
         "$pipelineSucceeded = $?",
-        "if (-not $pipelineSucceeded) { exit 1 }",
+        "if (-not $pipelineSucceeded -and $chdmanpyStatus -eq 0) { exit 1 }",
         "exit $chdmanpyStatus",
         "stdout",
         "stderr",
@@ -113,24 +139,12 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "arguments",
-    [
-        ["plan", "./input", "--output-dir", "./chd", "--preset", "ps2"],
-        ["run", "--manifest", "jobs.jsonl"],
-        ["convert", "./input", "--output-dir", "./chd", "--preset", "ps2"],
-        [
-            "convert",
-            "--arcshuttle-results",
-            "-",
-            "--output-dir",
-            "./chd",
-            "--preset",
-            "ps2",
-        ],
-    ],
-)
-def test_documented_command_examples_parse(arguments: list[str]) -> None:
+@pytest.mark.parametrize(("documented", "arguments"), DOCUMENTED_EXAMPLES)
+def test_documented_command_examples_parse(
+    documented: str, arguments: list[str]
+) -> None:
+    for document in USAGE_DOCUMENTS:
+        assert documented in document.read_text(encoding="utf-8")
     parsed = build_parser().parse_args(arguments)
     assert parsed.command == arguments[0]
 

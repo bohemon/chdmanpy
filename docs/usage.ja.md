@@ -133,7 +133,7 @@ PowerShell 7では次のように接続できます。
     Set-Content -Encoding utf8NoBOM .\results.jsonl
 $pipelineSucceeded = $?
 $chdmanpyStatus = $LASTEXITCODE
-if (-not $pipelineSucceeded) { exit 1 }
+if (-not $pipelineSucceeded -and $chdmanpyStatus -eq 0) { exit 1 }
 exit $chdmanpyStatus
 ```
 
@@ -192,7 +192,7 @@ if ($arcshuttle.ExitCode -ne 0) {
     --output-dir .\chd --preset ps2 > .\results.jsonl
 $conversionSucceeded = $?
 $chdmanpyStatus = $LASTEXITCODE
-if (-not $conversionSucceeded) { exit 1 }
+if (-not $conversionSucceeded -and $chdmanpyStatus -eq 0) { exit 1 }
 exit $chdmanpyStatus
 ```
 
