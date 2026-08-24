@@ -1,52 +1,55 @@
-# chdmanpy usage・移行guide
+# chdmanpy 使用方法・移行ガイド
 
 [English](usage.md) · [README](../README.ja.md) ·
 [JSON Lines schema v1](schema-v1.md) ·
-[0.1.0 release notes](release-notes-0.1.0.md)
+[0.1.0リリースノート](release-notes-0.1.0.md)
 
-## installとruntime要件
+## インストールと実行要件
 
-chdmanpyはPython 3.11以降のWindowsとLinuxをsupportします。source checkoutを
-用意せず再現可能なinstallを行うには、固定したv0.1.0 tagをGitHubから直接使います。
+chdmanpyは、Python 3.11以降のWindowsとLinuxをサポートします。ソースを
+チェックアウトせずに再現可能なインストールを行うには、固定したv0.1.0タグを
+GitHubから直接指定します。
 
 ```console
 pipx install "chdmanpy @ git+https://github.com/bohemon/chdmanpy.git@v0.1.0"
 ```
 
-このtagged-source形式にはGitが必要です。package indexでreleaseが公開されている場合は
-`pipx install chdmanpy`を使えます。
+このタグ付きソース形式にはGitが必要です。パッケージインデックスでリリースが
+公開されている場合は、`pipx install chdmanpy`も使えます。
 
-offlineまたはversion固定installでは、projectのGitHub Releaseからuniversal wheelを
-downloadし、公開されたSHA-256 digestを検証してから、検証済みlocal fileをinstallします。
+オフラインまたはバージョン固定のインストールでは、プロジェクトのGitHub Releaseから
+汎用wheelをダウンロードし、公開されたSHA-256ダイジェストを検証してから、検証済みの
+ローカルファイルをインストールします。
 
 ```console
 pipx install ./chdmanpy-0.1.0-py3-none-any.whl
 ```
 
-source checkoutでは`pipx install .`を使います。pipxではなく通常のvirtual environmentを
-使う場合は、環境を作成・activateし、
-`python -m pip install ./chdmanpy-0.1.0-py3-none-any.whl`でrelease wheelをinstallします。
+ソースのチェックアウトでは`pipx install .`を使います。pipxではなく通常の
+仮想環境を使う場合は、環境を作成して有効化し、
+`python -m pip install ./chdmanpy-0.1.0-py3-none-any.whl`でリリースwheelを
+インストールします。
 
-package indexからのinstallは`pipx upgrade chdmanpy`、activate済みvirtual environmentでは
-`python -m pip install --upgrade chdmanpy`でupgradeします。削除にはそれぞれ
+パッケージインデックスからのインストールは`pipx upgrade chdmanpy`、有効化済みの
+仮想環境では`python -m pip install --upgrade chdmanpy`で更新します。削除にはそれぞれ
 `pipx uninstall chdmanpy`または`python -m pip uninstall chdmanpy`を使います。
-`chdmanpy`と`python -m chdmanpy`は同じinterfaceを公開します。
+`chdmanpy`と`python -m chdmanpy`は同じインターフェイスを提供します。
 
-CHDMANは外部runtime要件です。別途installした上で、`--chdman`、
+CHDMANは外部の実行要件です。別途インストールした上で、`--chdman`、
 `CHDMANPY_CHDMAN`、`[runtime].chdman`、`PATH`の順で選択します。chdmanpyは
-変換中にCHDMANをdownloadせず、ArcShuttleをinstall・起動することもありません。
+変換中にCHDMANをダウンロードせず、ArcShuttleをインストール・起動することもありません。
 
-repositoryの`install-chdman.ps1`は、chdmanpy installerではなく、source
-distribution用の任意helperです。Windows x64またはArm64で、固定したMAME 0.287
-packageをdownloadし、記録済みSHA-256 digestを検証して、scriptと同じdirectoryへ
-`chdman.exe`をcopyします。`PATH`やpipx環境は更新せず、その場所に既存の
-`chdman.exe`があれば置き換えます。明示的に実行する前にscriptを確認し、得られた
-executableは`--chdman`または設定で指定してください。このhelperはwheelに含まれず、
-自動実行されません。
+リポジトリの`install-chdman.ps1`は、chdmanpyのインストーラーではなく、ソース配布物用の
+任意の補助スクリプトです。Windows x64またはArm64では、固定したMAME 0.287パッケージを
+ダウンロードし、記録済みのSHA-256ダイジェストを検証して、スクリプトと同じ
+ディレクトリへ`chdman.exe`をコピーします。`PATH`やpipx環境は更新せず、その場所に
+既存の`chdman.exe`があれば置き換えます。明示的に実行する前にスクリプトを確認し、
+得られた実行ファイルは`--chdman`または設定で指定してください。この補助スクリプトは
+wheelに含まれず、自動実行されません。
 
-## commandと入力
+## コマンドと入力
 
-3種類のcommand familyがあります。
+コマンドは3種類あります。
 
 ```text
 chdmanpy plan [OPTIONS] PATH...
@@ -60,67 +63,68 @@ chdmanpy convert [OPTIONS] --files0-from FILE
 chdmanpy convert [OPTIONS] --arcshuttle-results FILE
 ```
 
-`plan`はCHDMANを探索・実行せず、入力を検証してschema-v1 `job` recordを出力します。
-`run`は保存済みchdmanpy manifest全体をpreflightしてから実行します。`convert`は計画と
-実行を1回で行います。
+`plan`はCHDMANを探索・実行せず、入力を検証してschema-v1の`job`レコードを出力します。
+`run`は保存済みのchdmanpyマニフェスト全体を事前検証してから実行します。`convert`は
+計画と実行を1回で行います。
 
 `plan`と`convert`では、次の入力形式からちょうど1つを選びます。
 
-- 1件以上のfileまたはdirectoryをpositional pathで指定
-- 改行区切りpathには`--files-from FILE`
-- NUL区切りpathには`--files0-from FILE`
-- ArcShuttle 0.3.2 schema-v2 extract streamには`--arcshuttle-results FILE`
+- 1件以上のファイルまたはディレクトリを位置引数のパスで指定
+- 改行区切りのパスには`--files-from FILE`
+- NUL区切りのパスには`--files0-from FILE`
+- ArcShuttle 0.3.2 schema-v2展開結果ストリームには`--arcshuttle-results FILE`
 
-stdinを使えるのは、optionが明示的に`-`を許可する場合だけです。chdmanpyはstdinを暗黙に
-読みません。ArcShuttle resultはupstream実行recordであり、chdmanpy manifestではない
-ため、`run --manifest`へ渡せません。
+標準入力を使えるのは、オプションが明示的に`-`を許可する場合だけです。chdmanpyは
+標準入力を暗黙には読みません。ArcShuttleの結果は上流の実行レコードであり、chdmanpyの
+マニフェストではないため、`run --manifest`へ渡せません。
 
-planning optionは`plan`と`convert`で使えます。
+計画オプションは`plan`と`convert`で使えます。
 
-| option | 目的 |
+| オプション | 目的 |
 | --- | --- |
-| `--output-dir DIR` | 出力root。環境変数またはTOMLにない場合は必須です。 |
-| `--preset others|ps2|psp` | bundled format presetを選択します。既定は`others`です。 |
+| `--output-dir DIR` | 出力ルート。環境変数またはTOMLにない場合は必須です。 |
+| `--preset others\|ps2\|psp` | 同梱の形式プリセットを選択します。既定は`others`です。 |
 | `--config FILE` | 厳密なUTF-8 TOML設定を読みます。 |
-| `--existing fail|skip|rename` | 既存出力policy。既定は`fail`です。 |
-| `--priority INTEGER` | signed 32-bit scheduling priorityをmanifestへ記録します。 |
-| `--on-upstream-error fail|skip` | cleanでないArcShuttle resultのpolicy。`--arcshuttle-results`専用です。 |
+| `--existing fail\|skip\|rename` | 既存出力の処理方針。既定は`fail`です。 |
+| `--priority INTEGER` | 符号付き32ビットのスケジュール優先度をマニフェストへ記録します。 |
+| `--on-upstream-error fail\|skip` | 正常完了していないArcShuttle結果の処理方針。`--arcshuttle-results`専用です。 |
 
-runtime optionは`run`と`convert`で使えます。`run`も`--config FILE`を受け付けます。
+実行オプションは`run`と`convert`で使えます。`run`も`--config FILE`を受け付けます。
 
-| option | 目的 |
+| オプション | 目的 |
 | --- | --- |
-| `--chdman COMMAND` | CHDMAN executableを選択します。 |
-| `--workers COUNT` | 同時に動かすCHDMAN process数を制限します。 |
-| `--fail-fast` | 最初のjob failure後に新しいjobの開始を止めます。 |
-| `--allow-changed` | 変更されたprimary inputをfailureではなくwarning付きで実行します。 |
-| `--log-dir DIR` | run/job logのrootを選択します。 |
+| `--chdman COMMAND` | CHDMANの実行ファイルを選択します。 |
+| `--workers COUNT` | 同時に動かすCHDMANプロセス数を制限します。 |
+| `--fail-fast` | 最初のジョブ失敗後に、新しいジョブの開始を止めます。 |
+| `--allow-changed` | 変更された主入力を、失敗ではなく警告付きで実行します。 |
+| `--log-dir DIR` | 実行ログとジョブログの保存先ルートを選択します。 |
 
-正確なoption構文は`chdmanpy COMMAND --help`で確認してください。
+正確なオプション構文は`chdmanpy COMMAND --help`で確認してください。
 
-## direct workflowと確認可能なworkflow
+## 直接実行と確認可能なワークフロー
 
-directoryを直接変換します。
+ディレクトリを直接変換します。
 
 ```console
 chdmanpy convert ./input --output-dir ./chd --preset ps2 >results.jsonl
 ```
 
-実行前にmanifestの編集可能fieldを確認・編集する場合は、計画と実行を分離します。
+実行前にマニフェストの編集可能なフィールドを確認・編集する場合は、計画と実行を
+分離します。
 
 ```console
 chdmanpy plan ./input --output-dir ./chd --preset ps2 >jobs.jsonl
 chdmanpy run --manifest jobs.jsonl >results.jsonl
 ```
 
-CHDMANの探索やjob開始より前にmanifest全体を検証します。編集前に
+CHDMANの探索やジョブ開始より前にマニフェスト全体を検証します。編集前に
 [schema-v1契約](schema-v1.md)を確認してください。
 
-## ArcShuttle workflow
+## ArcShuttleワークフロー
 
-chdmanpyはZIPを探索・展開しません。archiveの探索、展開、staging、cleanupは
-ArcShuttleの役割です。BashやZshなど`pipefail`をsupportするshellでは、次のdirect
-pipelineを使えます。
+chdmanpyはZIPを探索・展開しません。アーカイブの探索、展開、ステージング、後処理は
+ArcShuttleの役割です。BashやZshなど、`pipefail`をサポートするシェルでは、次の
+直接パイプラインを使えます。
 
 ```bash
 set -o pipefail
@@ -141,15 +145,16 @@ if (-not $pipelineSucceeded -and $chdmanpyStatus -eq 0) { exit 1 }
 exit $chdmanpyStatus
 ```
 
-PowerShell pipeline直後に`$?`と`$LASTEXITCODE`の両方を保存してください。
-`$pipelineSucceeded`は`Set-Content` failureを検出し、`$chdmanpyStatus`は別のnative
-processを実行するまで直近のnative process statusを保持します。direct形式は簡潔ですが、
-`pipefail`はsupportするshellにpipeline failureを報告するだけです。producer exitを
-chdmanpyへ伝えず、downstream変換が始まらなかったことも保証しません。ArcShuttle
-schema-v2 summaryにもproducer process exitは含まれません。ArcShuttle processがcleanに
-終了したことまで必要な場合は、変換前に出力を保存してexitを確認します。
+PowerShellパイプラインの直後に、`$?`と`$LASTEXITCODE`の両方を保存してください。
+`$pipelineSucceeded`は`Set-Content`の失敗を検出し、`$chdmanpyStatus`は別の
+ネイティブプロセスを実行するまで、直前のネイティブプロセスの終了コードを保持します。
+直接形式は簡潔ですが、`pipefail`は対応するシェルへパイプラインの失敗を報告するだけです。
+生成側の終了コードをchdmanpyへ伝えず、後段の変換が始まらなかったことも保証しません。
+ArcShuttle schema-v2の`summary`にも、生成側プロセスの終了コードは含まれません。
+ArcShuttleプロセスの正常終了まで確認する必要がある場合は、変換前に出力を保存して
+終了コードを確認します。
 
-安全なPOSIX handoff:
+安全なPOSIXでの引き渡し例：
 
 ```sh
 results=./arcshuttle-results.jsonl
@@ -164,9 +169,9 @@ else
 fi
 ```
 
-byte-preservingなPowerShell handoffではPowerShell 7を使い、native stdout streamを
-直接copyします。これにより、Windows PowerShell 5.1や古いPowerShellのtext redirection
-encodingへ依存しません。
+バイト列を保持するPowerShellでの引き渡しにはPowerShell 7を使い、ネイティブ標準出力の
+ストリームを直接コピーします。これにより、Windows PowerShell 5.1や古いPowerShellの
+テキストリダイレクト時のエンコーディングに依存しません。
 
 ```powershell
 $arcResults = Join-Path $PWD "arcshuttle-results.jsonl"
@@ -200,56 +205,59 @@ if (-not $conversionSucceeded -and $chdmanpyStatus -eq 0) { exit 1 }
 exit $chdmanpyStatus
 ```
 
-既定の`--on-upstream-error fail`は、finalized successでないresultまたはwarningを1件でも
-含むArcShuttle stream全体を拒否します。明示的な`--on-upstream-error skip`は、検証済み
-success rootだけを使い、省略した全項目をstderrへ報告します。downstream変換が成功しても
-exit 1です。不正な構造、矛盾するsummary、安全でないpath、不完全なstagingは常に拒否
-します。規範は[ArcShuttle取り込み契約](arcshuttle-schema-v2.ja.md)を参照してください。
+既定の`--on-upstream-error fail`は、確定済みの`success`でない結果または警告を1件でも
+含むArcShuttleストリーム全体を拒否します。明示的な`--on-upstream-error skip`は、
+検証済みの`success`ルートだけを使い、省略した全項目を標準エラー出力へ報告します。
+後段の変換が成功しても終了コードは1です。不正な構造、矛盾する`summary`、安全でない
+パス、不完全なステージングは常に拒否します。規範については、
+[ArcShuttle取り込み契約](arcshuttle-schema-v2.ja.md)を参照してください。
 
-## stream、log、staging、exit
+## ストリーム、ログ、ステージング、終了コード
 
-stdoutはBOMなしUTF-8 JSON Lines専用です。
+標準出力（`stdout`）は、BOMなしUTF-8 JSON Lines専用です。
 
-- `plan`は`job` recordだけを出力します。
-- `run`と`convert`はjobごとに順序を保った`result`を1件ずつ出力し、最後にちょうど1件の
+- `plan`は`job`レコードだけを出力します。
+- `run`と`convert`はジョブごとに順序を保った`result`を1件ずつ出力し、最後にちょうど1件の
   `summary`を出力します。
 
-diagnostic、選択したCHDMAN/version、run log pathはstderrへ出力します。実行eventは進捗と
-してstreamせず、run logへ記録します。CHDMANのstdout/stderrはresultごとの`log_path`に
-記録します。既定では最初に計画されたdestinationのparent以下の`.chdmanpy-logs` treeへ
-保存します。別のrootには`--log-dir`を使います。
+診断メッセージ、選択したCHDMANとそのバージョン、実行ログのパスは標準エラー出力
+（`stderr`）へ出力します。実行イベントは進捗としてストリーム出力せず、実行ログへ
+記録します。CHDMANの標準出力と標準エラー出力は、結果ごとの`log_path`へ記録します。
+既定では、最初に計画された出力先の親ディレクトリ以下にある`.chdmanpy-logs`へ保存します。
+別のルートを指定するには`--log-dir`を使います。
 
-JSON Lines consumerはEOFまで読み、末尾の`summary`を必須としてください。途中の
-`success` resultだけではinvocation完了を意味しません。result statusの意味は次のとおりです。
+JSON Linesの利用側はEOFまで読み、末尾の`summary`を必須としてください。途中の
+`success`結果だけでは、コマンド呼び出しの完了を意味しません。結果の状態は次のとおりです。
 
-- `success`: 検証済みCHDをcleanにpublishしました。
-- `warning`: jobは完了しましたがwarningがあります。
-- `failed`: jobがfailureとなり、owned stagingを保持した場合があります。
-- `skipped`: jobを意図的に実行しませんでした。
-- `interrupted`: interruptにより完了前または実行中に停止しました。
+- `success`：検証済みCHDを正常に公開しました。
+- `warning`：ジョブは完了しましたが、警告があります。
+- `failed`：ジョブが失敗し、chdmanpyが所有するステージングを保持した場合があります。
+- `skipped`：ジョブを意図的に実行しませんでした。
+- `interrupted`：割り込みにより、完了前または実行中に停止しました。
 
-各変換はprivateなsibling `.failed` staging directoryへ書き、検証済みCHDを上書きなしで
-publishします。成功したowned stagingは削除します。failureまたはinterrupt時のowned
-stagingは検査用に保持し、絶対pathを`staging_path`として報告します。chdmanpyはinputや
-ArcShuttle output directoryを変更しません。
+各変換は、出力先と同じ親ディレクトリにある専用の`.failed`ステージングディレクトリへ
+書き込み、検証済みCHDを上書きせずに公開します。成功時はchdmanpyが所有する
+ステージングを削除します。失敗または割り込み時は検査用に保持し、絶対パスを
+`staging_path`として報告します。chdmanpyは入力やArcShuttleの出力ディレクトリを
+変更しません。
 
-既存destinationにはmanifestで明示した`fail`（既定）、`skip`、deterministic `rename`の
-policyを使います。どのpolicyもCHDを破壊的に上書きしません。
+既存の出力先には、マニフェストで明示した`fail`（既定）、`skip`、再現可能な`rename`の
+処理方針を使います。どの処理方針もCHDを破壊的に上書きしません。
 
-| exit | 意味 |
+| 終了コード | 意味 |
 | ---: | --- |
-| 0 | clean success |
-| 1 | warningまたはskipを伴う完了。受理したpartial upstream runを含みます。 |
-| 2 | 1件以上のCHDMAN job failure |
-| 64 | usage、設定、入力、stream、manifest error。preflight failure後はjobを開始しません。 |
-| 130 | interrupt。実行開始後は有効なresultとsummaryを伴う場合があります。 |
+| 0 | 正常終了 |
+| 1 | 警告またはスキップを伴う完了。受理した上流処理の部分実行を含みます。 |
+| 2 | 1件以上のCHDMANジョブが失敗 |
+| 64 | 使用方法、設定、入力、ストリーム、マニフェストのエラー。事前検証の失敗後はジョブを開始しません。 |
+| 130 | 割り込み。実行開始後は有効な`result`と`summary`を伴う場合があります。 |
 
-exit 1、2、130は、有効なresult recordとそれに続くsummaryを伴う場合があります。
+終了コード1、2、130は、有効な`result`レコードとそれに続く`summary`を伴う場合があります。
 
 ## 設定
 
-設定の優先順位はCLI、`CHDMANPY_*`環境変数、明示的TOML、bundled preset/defaultです。
-未知keyと不正な型はerrorです。
+設定の優先順位は、CLI、`CHDMANPY_*`環境変数、明示的なTOML、同梱のプリセット、
+既定値の順です。未知のキーと不正な型はエラーです。
 
 ```toml
 [options]
@@ -265,39 +273,40 @@ priority = 0
 chdman = "chdman"
 ```
 
-bundled preset mappingは次のとおりです。
+同梱プリセットの対応は次のとおりです。
 
-| preset | extension | CHDMAN creation argument |
+| プリセット | 拡張子 | CHDMAN作成引数 |
 | --- | --- | --- |
 | `others` | `.cue` | `createcd` |
 | `ps2` | `.cue` | `createcd` |
 | `ps2` | `.iso` | `createdvd -c zlib` |
 | `psp` | `.iso` | `createdvd -hs 2048 -c zstd` |
 
-historical `[options]` tableは引き続き受理し、選択したpresetのextension mapping全体を
-置き換えます。input/output/force argumentはchdmanpyが管理し、TOMLから指定できません。
+従来の`[options]`テーブルは引き続き受理し、選択したプリセットの拡張子対応全体を
+置き換えます。入力、出力、強制実行に関する引数はchdmanpyが管理するため、TOMLからは
+指定できません。
 
-supportする環境変数は次のとおりです。
+サポートする環境変数は次のとおりです。
 
 | 変数 | 受理する値と意味 |
 | --- | --- |
-| `CHDMANPY_OUTPUT_DIR` | `<path>`: 空でない出力root。`--output-dir`相当です。 |
+| `CHDMANPY_OUTPUT_DIR` | `<path>`：空でない出力ルート。`--output-dir`相当です。 |
 | `CHDMANPY_EXISTING` | `fail` / `skip` / `rename`。`--existing`相当です。 |
-| `CHDMANPY_PRIORITY` | `-2147483648..2147483647`: 10進integer。`--priority`相当です。 |
+| `CHDMANPY_PRIORITY` | `-2147483648..2147483647`：10進整数。`--priority`相当です。 |
 | `CHDMANPY_PRESET` | `others` / `ps2` / `psp`。`--preset`相当です。 |
-| `CHDMANPY_CHDMAN` | `<executable-name-or-path>`: 空でない単一のexecutable名またはpath。`PATH`より先に使い、shell fragmentやargumentは受理しません。 |
+| `CHDMANPY_CHDMAN` | `<executable-name-or-path>`：空でない単一の実行ファイル名またはパス。`PATH`より先に使い、シェル断片や引数は受理しません。 |
 
-## historical scriptからの移行
+## 従来のスクリプトからの移行
 
-historical `python chdmanpy.py INPUT OUTPUT --config FILE` interfaceは0.1.0の
-compatibility surfaceではありません。
+従来の`python chdmanpy.py INPUT OUTPUT --config FILE`インターフェイスは、0.1.0では
+互換性の対象ではありません。
 
-| historical動作 | 0.1.0での置き換え |
+| 従来の動作 | 0.1.0での置き換え |
 | --- | --- |
 | `python chdmanpy.py INPUT OUTPUT --config ps2.toml` | `chdmanpy convert INPUT --output-dir OUTPUT --preset ps2` |
-| custom `[options]` TOML | `--config FILE`を継続利用できます。`[options]`も引き続きsupportします。 |
-| ZIP探索・展開 | ArcShuttleを別processで実行し、`--arcshuttle-results`を渡します。chdmanpyにarchive backendはありません。 |
-| `--temp-dir`、`unzip_zip_files`、`_extracted`出力 | chdmanpy内の置き換えはありません。展開policyはArcShuttleが担当し、出力はnamespace付き相対pathを保持します。 |
-| `[run].workers` | invocation-wide `--workers COUNT`を使います。 |
-| stdout上の人間向け進捗・result | stdoutのJSON Linesを処理し、stderrのdiagnosticとresultのlog pathを参照します。 |
+| 独自の`[options]` TOML | `--config FILE`を継続利用できます。`[options]`も引き続きサポートします。 |
+| ZIPの探索・展開 | ArcShuttleを別プロセスで実行し、`--arcshuttle-results`を渡します。chdmanpyにアーカイブ処理機能はありません。 |
+| `--temp-dir`、`unzip_zip_files`、`_extracted`出力 | chdmanpy内の置き換えはありません。展開方針はArcShuttleが担当し、出力では名前空間を分けた相対パスを保持します。 |
+| `[run].workers` | コマンド呼び出し全体に適用される`--workers COUNT`を使います。 |
+| 標準出力上の人間向け進捗・結果 | 標準出力のJSON Linesを処理し、標準エラー出力の診断と結果のログパスを参照します。 |
 | `chdmanpy.py`と同じ場所の`chdman.exe` | `--chdman`、`CHDMANPY_CHDMAN`、`[runtime].chdman`、`PATH`を使います。 |
