@@ -1,14 +1,26 @@
-"""Install the built wheel without an index and smoke-test both entry points."""
+"""Inspect built artifacts and smoke-test a clean wheel installation."""
 
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
 EXPECTED_VERSION = "chdmanpy 0.1.0\n"
+EXPECTED_SDIST_DOCUMENTS = {
+    "README.md",
+    "README.ja.md",
+    "docs/arcshuttle-schema-v2.ja.md",
+    "docs/arcshuttle-schema-v2.md",
+    "docs/schema-v1.md",
+    "docs/testing.md",
+    "docs/usage.ja.md",
+    "docs/usage.md",
+    "install-chdman.ps1",
+}
 
 
 def _invoke(
@@ -46,6 +58,22 @@ def main(argv: list[str] | None = None) -> int:
     wheel = wheels[0]
     if not wheel.name.endswith("-py3-none-any.whl"):
         raise RuntimeError(f"expected a universal Python wheel, found {wheel.name}")
+    source_distributions = sorted(distribution_directory.glob("*.tar.gz"))
+    if len(source_distributions) != 1:
+        raise RuntimeError(
+            f"expected exactly one sdist in {distribution_directory}, "
+            f"found {len(source_distributions)}"
+        )
+    with tarfile.open(source_distributions[0], mode="r:gz") as archive:
+        relative_members = {
+            "/".join(Path(member.name).parts[1:]) for member in archive.getmembers()
+        }
+    missing_documents = EXPECTED_SDIST_DOCUMENTS - relative_members
+    if missing_documents:
+        raise RuntimeError(
+            "sdist is missing required documentation: "
+            + ", ".join(sorted(missing_documents))
+        )
 
     with tempfile.TemporaryDirectory(prefix="chdmanpy-wheel-smoke-") as temporary:
         root = Path(temporary)

@@ -1,5 +1,7 @@
 # chdmanpy JSON Lines schema v1
 
+[Usage guide](usage.md) ([日本語](usage.ja.md)) · [README](../README.md)
+
 This document is normative for chdmanpy schema v1. Every stream is BOM-free UTF-8
 JSON Lines. Blank lines, duplicate JSON object keys, non-object records, malformed
 JSON, non-finite numbers, unknown fields, and unknown schema versions are errors.

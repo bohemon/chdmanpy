@@ -1,63 +1,55 @@
 # chdmanpy
 
-This is a python script for `CHDMAN`.
+[Japanese / 日本語](https://github.com/bohemon/chdmanpy/blob/main/README.ja.md)
 
-## Installation (Windows)
+chdmanpy is a pipeline-friendly command-line frontend for CHDMAN. It plans and
+runs bounded parallel conversions while keeping machine-readable JSON Lines on
+stdout. Archive extraction belongs to
+[ArcShuttle](https://github.com/bohemon/ArcShuttle): chdmanpy neither extracts
+ZIP files nor invokes ArcShuttle.
 
-Clone the repository, then run the installer from PowerShell:
+## Requirements
 
-```powershell
-.\install-chdman.ps1
+- Windows or Linux with Python 3.11 or later
+- `chdman`, installed separately and available on `PATH`, through `--chdman`,
+  or through configuration
+- ArcShuttle only when archive extraction is needed
+
+## Installation
+
+Install a published release in an isolated environment:
+
+```console
+pipx install chdmanpy
 ```
 
-The installer downloads the official MAME 0.287 package for Windows x64 or
-Arm64, verifies its SHA-256 checksum, and installs `chdman.exe` in the
-repository directory. If script execution is disabled, run:
+From a source checkout, use `pipx install .`. Installing chdmanpy does not
+install CHDMAN or ArcShuttle.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\install-chdman.ps1
+## Quick start
+
+Convert a directory directly with the bundled PlayStation 2 preset:
+
+```console
+chdmanpy convert ./input --output-dir ./chd --preset ps2 >results.jsonl
 ```
 
-## How this works
+For archives, connect ArcShuttle's schema-v2 result stream explicitly:
 
-Basically, this script runs `chdman createcd` for `.cue` files, and `chdman createdvd` for `.iso` files.
-In addition, this script extracts ZIP files in advance.
-
-Overall flow:
-
-1. Recursively search `<input_dir>` and collect ZIP files.
-2. For each collected ZIP file, in parallel:
-    1. Extract it into a temporary directory.
-3. Search both the `<input_dir>` and the temporary directory, and collect files with the target extensions (i.e., `.cue` and `.iso`).
-4. For each collected target file, in parallel:
-    1. Set the output root to `<output_dir>` if the file is not from an extracted ZIP archive; otherwise, set it to `<output_dir>/_extracted`.
-    2. Apply `CHDMAN` to the file with the configured options.
-
-## Usage
-
-`python chdmanpy.py <input_dir> <output_dir> --config <config_toml> [--temp-dir <directory>]`
-
-Example:
-
-```bash
-python ./chdmanpy.py ./input ./output --config ps2.toml # ps2
+```sh
+arcshuttle extract --output-dir ./extracted game.zip |
+  chdmanpy convert --arcshuttle-results - --output-dir ./chd --preset ps2 \
+  >results.jsonl
 ```
 
-```bash
-python ./chdmanpy.py ./input ./output/ --config psp.toml # psp
-```
+Diagnostics remain visible on stderr. See the usage manual before using a direct
+pipeline when the ArcShuttle process exit must also be verified.
 
-ZIP archives are extracted under the operating system's default temporary
-directory. If that filesystem does not have enough free space (for example,
-when `/tmp` is a small `tmpfs` on Linux), use `--temp-dir` to select a
-directory on a filesystem with sufficient capacity:
+## Documentation
 
-```bash
-mkdir -p ./chdman-tmp
-python3 ./chdmanpy.py INPUT_DIR OUTPUT_DIR \
-  --config ps2.toml \
-  --temp-dir ./chdman-tmp
-```
-
-The script creates a uniquely named working directory below the selected
-directory and removes it automatically when processing finishes.
+- [Usage and migration guide](https://github.com/bohemon/chdmanpy/blob/main/docs/usage.md)
+  ([日本語](https://github.com/bohemon/chdmanpy/blob/main/docs/usage.ja.md))
+- [chdmanpy JSON Lines schema v1](https://github.com/bohemon/chdmanpy/blob/main/docs/schema-v1.md)
+- [ArcShuttle schema-v2 ingestion](https://github.com/bohemon/chdmanpy/blob/main/docs/arcshuttle-schema-v2.md)
+  ([日本語](https://github.com/bohemon/chdmanpy/blob/main/docs/arcshuttle-schema-v2.ja.md))
+- [Testing](https://github.com/bohemon/chdmanpy/blob/main/docs/testing.md)

@@ -32,7 +32,7 @@ chdmanpy = "chdmanpy.cli:entrypoint"
 
 [project.urls]
 Homepage = "https://github.com/bohemon/chdmanpy"
-Documentation = "https://github.com/bohemon/chdmanpy/blob/main/README.md"
+Documentation = "https://github.com/bohemon/chdmanpy/blob/main/docs/usage.md"
 Issues = "https://github.com/bohemon/chdmanpy/issues"
 Source = "https://github.com/bohemon/chdmanpy"
 
@@ -64,6 +64,9 @@ exclude = [
 include = [
   "/LICENSE",
   "/README.md",
+  "/README.ja.md",
+  "/docs",
+  "/install-chdman.ps1",
   "/pyproject.toml",
   "/src/chdmanpy",
 ]
