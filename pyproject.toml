@@ -32,7 +32,7 @@ chdmanpy = "chdmanpy.cli:entrypoint"
 
 [project.urls]
 Homepage = "https://github.com/bohemon/chdmanpy"
-Documentation = "https://github.com/bohemon/chdmanpy/blob/main/README.md"
+Documentation = "https://github.com/bohemon/chdmanpy/blob/main/docs/usage.md"
 Issues = "https://github.com/bohemon/chdmanpy/issues"
 Source = "https://github.com/bohemon/chdmanpy"
 
@@ -64,12 +64,20 @@ exclude = [
 include = [
   "/LICENSE",
   "/README.md",
+  "/README.ja.md",
+  "/docs",
+  "/install-chdman.ps1",
   "/pyproject.toml",
   "/src/chdmanpy",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/chdmanpy"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"docs" = "chdmanpy/docs"
+"README.md" = "chdmanpy/README.md"
+"README.ja.md" = "chdmanpy/README.ja.md"
 
 [tool.hatch.envs.default]
 dependencies = [

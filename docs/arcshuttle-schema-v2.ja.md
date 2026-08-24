@@ -1,5 +1,8 @@
 # ArcShuttle schema-v2 result の取り込み
 
+[English](arcshuttle-schema-v2.md) · [usage guide](usage.ja.md) ·
+[README](../README.ja.md)
+
 この文書は `--arcshuttle-results` の規範である。受理するproducer形式は
 ArcShuttle 0.3.2のschema-v2実行streamであり、汎用JSON取り込みでもchdmanpyの
 job manifestでもない。chdmanpyはArcShuttleをimport、探索、install、設定、起動

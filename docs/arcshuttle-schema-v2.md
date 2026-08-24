@@ -1,5 +1,8 @@
 # ArcShuttle schema-v2 result ingestion
 
+[Japanese / 日本語](arcshuttle-schema-v2.ja.md) · [Usage guide](usage.md) ·
+[README](../README.md)
+
 This document is normative for `--arcshuttle-results`. The accepted producer shape is
 the ArcShuttle 0.3.2 schema-v2 execution stream. It is not a generic JSON import and it
 is not a chdmanpy job manifest. chdmanpy does not import, discover, install, configure,
