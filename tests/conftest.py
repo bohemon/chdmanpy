@@ -14,14 +14,6 @@ from typing import Any
 import pytest
 
 
-def _fake_chdman_interpreter() -> str:
-    if os.name == "nt":
-        base_executable = getattr(sys, "_base_executable", None)
-        if isinstance(base_executable, str) and base_executable:
-            return base_executable
-    return sys.executable
-
-
 @dataclass(frozen=True)
 class FakeChdman:
     """One isolated fake-CHDMAN control and observation channel."""
@@ -72,7 +64,7 @@ def fake_chdman_factory(
             }
         )
         return FakeChdman(
-            command=(_fake_chdman_interpreter(), str(fake_script)),
+            command=(sys.executable, str(fake_script)),
             control_path=control_path,
             record_path=record_path,
             environment=environment,

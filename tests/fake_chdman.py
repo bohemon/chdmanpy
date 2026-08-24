@@ -85,6 +85,15 @@ def _signal_name(signum: int) -> str:
         return str(signum)
 
 
+def _interruptible_delay(seconds: float) -> None:
+    deadline = time.monotonic() + seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(remaining, 0.05))
+
+
 def main() -> int:
     try:
         control = _load_control()
@@ -207,7 +216,7 @@ def main() -> int:
 
     delay = float(control.get("delay_seconds", 0))
     if delay > 0:
-        time.sleep(delay)
+        _interruptible_delay(delay)
 
     create_output = control.get(
         "create_output", output_path is not None and configured_exit == 0
