@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import io
 import json
+import os
 import unittest
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from chdmanpy.manifest import (
     EDITABLE_JOB_FIELDS,
     add_job_integrity,
     compute_job_integrity,
+    is_absolute_path,
     load_manifest,
     make_job_id,
     path_key,
@@ -25,7 +27,7 @@ from chdmanpy.manifest import (
 class JobRecordTests(unittest.TestCase):
     def test_validates_fixture_and_deterministic_job_id(self) -> None:
         job = job_record()
-        validated = validate_job_record(job)
+        validated = validate_job_record(job, windows=False)
         self.assertEqual(validated, job)
         self.assertEqual(
             job["job_id"],
@@ -34,6 +36,7 @@ class JobRecordTests(unittest.TestCase):
                 job["source"]["identity"],
                 job["chdman"]["operation"],
                 job["chdman"]["options"],
+                windows=False,
             ),
         )
         self.assertEqual(
@@ -50,11 +53,11 @@ class JobRecordTests(unittest.TestCase):
         job["scheduling"]["priority"] = -(2**31)
         job["tags"] = ["user-edited"]
         self.assertEqual(compute_job_integrity(job), original)
-        validate_job_record(job)
+        validate_job_record(job, windows=False)
 
         job["destination"]["path"] = "relative.chd"
         with self.assertRaisesRegex(ContractError, "absolute"):
-            validate_job_record(job)
+            validate_job_record(job, windows=False)
 
     def test_every_other_field_is_integrity_protected(self) -> None:
         mutations = (
@@ -72,7 +75,7 @@ class JobRecordTests(unittest.TestCase):
                 self.subTest(job=job),
                 self.assertRaisesRegex(ContractError, "integrity"),
             ):
-                validate_job_record(job)
+                validate_job_record(job, windows=False)
 
     def test_unknown_and_missing_fields_are_rejected_at_every_level(self) -> None:
         containers = ((), ("source",), ("destination",), ("chdman",), ("scheduling",))
@@ -86,12 +89,12 @@ class JobRecordTests(unittest.TestCase):
                 self.subTest(path=path),
                 self.assertRaisesRegex(ContractError, "unknown"),
             ):
-                validate_job_record(job)
+                validate_job_record(job, windows=False)
 
         job = job_record()
         del job["warnings"]
         with self.assertRaisesRegex(ContractError, "missing"):
-            validate_job_record(job)
+            validate_job_record(job, windows=False)
 
     def test_unknown_schema_and_record_type_are_rejected(self) -> None:
         for field, value in (("schema_version", 2), ("record_type", "result")):
@@ -102,7 +105,7 @@ class JobRecordTests(unittest.TestCase):
                 self.subTest(field=field),
                 self.assertRaisesRegex(ContractError, "unsupported"),
             ):
-                validate_job_record(job)
+                validate_job_record(job, windows=False)
 
     def test_rejects_managed_force_empty_and_nul_options(self) -> None:
         invalid = (
@@ -119,10 +122,11 @@ class JobRecordTests(unittest.TestCase):
         for option in invalid:
             job = job_record(options=(option,))
             with self.subTest(option=option), self.assertRaises(ContractError):
-                validate_job_record(job)
+                validate_job_record(job, windows=False)
 
         validate_job_record(
-            job_record(options=("--inputstartbyte", "0", "--outputparent", "x"))
+            job_record(options=("--inputstartbyte", "0", "--outputparent", "x")),
+            windows=False,
         )
 
         for field in ("tags", "warnings"):
@@ -131,7 +135,7 @@ class JobRecordTests(unittest.TestCase):
             if field == "warnings":
                 job = add_job_integrity(job)
             with self.subTest(field=field), self.assertRaises(ContractError):
-                validate_job_record(job)
+                validate_job_record(job, windows=False)
 
     def test_rejects_bool_and_invalid_resource_values(self) -> None:
         for path, value in (
@@ -148,19 +152,19 @@ class JobRecordTests(unittest.TestCase):
             target[path[-1]] = value
             job = add_job_integrity(job)
             with self.subTest(path=path), self.assertRaises(ContractError):
-                validate_job_record(job)
+                validate_job_record(job, windows=False)
 
     def test_source_must_be_equal_to_or_beneath_input_root(self) -> None:
         equal = job_record(source_path="/input/Game One")
         equal["source"]["input_root"] = "/input/Game One"
         equal = add_job_integrity(equal)
-        validate_job_record(equal)
+        validate_job_record(equal, windows=False)
 
         outside = job_record(source_path="/input/Game Two/disc.cue")
         outside["source"]["input_root"] = "/input/Game One"
         outside = add_job_integrity(outside)
         with self.assertRaisesRegex(ContractError, "beneath"):
-            validate_job_record(outside)
+            validate_job_record(outside, windows=False)
 
     def test_windows_absolute_paths_and_collision_keys(self) -> None:
         first = job_record(
@@ -197,6 +201,10 @@ class JobRecordTests(unittest.TestCase):
         second = add_job_integrity(second)
         with self.assertRaisesRegex(ContractError, "collision"):
             validate_manifest_records([first, second], windows=True)
+
+    def test_default_path_syntax_matches_the_host(self) -> None:
+        self.assertEqual(is_absolute_path("/input/disc.cue"), os.name != "nt")
+        self.assertEqual(is_absolute_path(r"C:\Input\disc.cue"), os.name == "nt")
 
     def test_windows_non_device_paths_reject_trimmed_components(self) -> None:
         def make_windows_job(destination: str) -> dict[str, Any]:
@@ -240,7 +248,10 @@ class JobRecordTests(unittest.TestCase):
             identity_digit="2",
         )
         self.assertEqual(
-            [job["plan_index"] for job in validate_manifest_records([second, first])],
+            [
+                job["plan_index"]
+                for job in validate_manifest_records([second, first], windows=False)
+            ],
             [0, 1],
         )
 
@@ -249,7 +260,7 @@ class JobRecordTests(unittest.TestCase):
         duplicate["destination"]["path"] = "/output/duplicate.chd"
         duplicate = add_job_integrity(duplicate)
         with self.assertRaisesRegex(ContractError, "duplicate job_id"):
-            validate_manifest_records([first, duplicate])
+            validate_manifest_records([first, duplicate], windows=False)
 
     def test_complete_preflight_rejects_editable_destination_in_input_roots(
         self,
@@ -259,7 +270,7 @@ class JobRecordTests(unittest.TestCase):
         first["destination"]["path"] = "/input/Game One/generated.chd"
         self.assertEqual(first["integrity"], first_integrity)
         with self.assertRaisesRegex(ContractError, "input_root"):
-            validate_manifest_records([first])
+            validate_manifest_records([first], windows=False)
 
         first = job_record(plan_index=0)
         second = job_record(
@@ -272,7 +283,7 @@ class JobRecordTests(unittest.TestCase):
         second = add_job_integrity(second)
         first["destination"]["path"] = "/input/Game Two/generated.chd"
         with self.assertRaisesRegex(ContractError, "input_root"):
-            validate_manifest_records([first, second])
+            validate_manifest_records([first, second], windows=False)
 
     def test_complete_preflight_protects_windows_input_roots(self) -> None:
         job = job_record(
@@ -295,16 +306,16 @@ class JobRecordTests(unittest.TestCase):
     def test_load_manifest_reads_jsonl_through_eof(self) -> None:
         job = job_record()
         raw = (json.dumps(job, ensure_ascii=False) + "\n").encode()
-        self.assertEqual(load_manifest(io.BytesIO(raw)), [job])
+        self.assertEqual(load_manifest(io.BytesIO(raw), windows=False), [job])
         with self.assertRaises(ContractError):
-            load_manifest(io.BytesIO(raw + b"not-json\n"))
+            load_manifest(io.BytesIO(raw + b"not-json\n"), windows=False)
         with self.assertRaisesRegex(ContractError, "at least one"):
-            load_manifest(io.BytesIO(b""))
+            load_manifest(io.BytesIO(b""), windows=False)
 
     def test_normative_fixture_remains_valid(self) -> None:
         fixture = Path(__file__).parent / "fixtures" / "job-v1.jsonl"
         with fixture.open("rb") as stream:
-            jobs = load_manifest(stream)
+            jobs = load_manifest(stream, windows=False)
         self.assertEqual(len(jobs), 1)
         self.assertIn("\n", jobs[0]["source"]["path"])
 

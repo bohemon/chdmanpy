@@ -20,7 +20,9 @@ def job_record(
     record: dict[str, Any] = {
         "schema_version": 1,
         "record_type": "job",
-        "job_id": make_job_id(source_path, identity, "createcd", options),
+        "job_id": make_job_id(
+            source_path, identity, "createcd", options, windows=False
+        ),
         "plan_index": plan_index,
         "source": {
             "path": source_path,

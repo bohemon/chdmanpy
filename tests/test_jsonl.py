@@ -35,6 +35,7 @@ class JsonLinesTests(unittest.TestCase):
             b"[]\n",
             b'{"x":1,"x":2}\n',
             b'{"x":NaN}\n',
+            b'{"x":1e9999}\n',
         )
         for value in invalid_streams:
             with self.subTest(value=value), self.assertRaises(ContractError):

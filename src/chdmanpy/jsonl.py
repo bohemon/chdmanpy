@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import codecs
 import json
+import math
 from collections.abc import Iterable, Mapping
 from typing import Any, BinaryIO, TextIO
 
 from chdmanpy.errors import ContractError
+
+MAX_JSON_INTEGER_DIGITS = 4_300
 
 
 def canonical_json_bytes(value: object) -> bytes:
@@ -39,6 +42,22 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def _reject_non_finite(value: str) -> None:
     raise ContractError(f"non-finite JSON number is not supported: {value}")
+
+
+def _parse_integer(value: str) -> int:
+    digits = value.removeprefix("-")
+    if len(digits) > MAX_JSON_INTEGER_DIGITS:
+        raise ContractError(
+            f"JSON integer exceeds {MAX_JSON_INTEGER_DIGITS} decimal digits"
+        )
+    return int(value)
+
+
+def _parse_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ContractError(f"non-finite JSON number is not supported: {value}")
+    return parsed
 
 
 def loads_json_lines(stream: BinaryIO) -> list[dict[str, Any]]:
@@ -78,6 +97,8 @@ def loads_json_lines(stream: BinaryIO) -> list[dict[str, Any]]:
                 line,
                 object_pairs_hook=_reject_duplicate_keys,
                 parse_constant=_reject_non_finite,
+                parse_float=_parse_float,
+                parse_int=_parse_integer,
             )
         except ContractError as error:
             raise ContractError(
