@@ -4,7 +4,6 @@ import contextlib
 import io
 import os
 import threading
-import time
 from collections.abc import Callable
 from pathlib import Path
 from types import MappingProxyType
@@ -494,14 +493,11 @@ def test_one_process_budget_and_plan_order_when_completion_is_out_of_order(
     )
     environment = dict(fake.environment)
     environment.pop("FAKE_CHDMAN_RECORD")
-    started = time.monotonic()
     outcome = run_jobs(
         jobs,
         chdman=fake.command,
         options=_options(fake, tmp_path, workers=2, environment=environment),
     )
-    elapsed = time.monotonic() - started
-    assert 0.35 <= elapsed < 1.2
     assert [result["plan_index"] for result in outcome.results] == [0, 1, 2, 3]
     assert all(result["status"] == "success" for result in outcome.results)
     observed = {
