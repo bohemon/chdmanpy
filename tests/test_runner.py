@@ -112,6 +112,51 @@ def test_success_warning_logs_unicode_and_stdout_purity(
     assert "run started" in Path(outcome.run_log_path).read_text(encoding="utf-8")
 
 
+def test_createcd_preserves_exact_long_unicode_and_space_paths(
+    tmp_path: Path,
+    fake_chdman_factory: Callable[[dict[str, Any]], FakeChdman],
+) -> None:
+    source_dir = tmp_path / f"long source 日本語 {'s' * 36}"
+    source_dir.mkdir()
+    source = source_dir / f"disc tracks 日本語 {'t' * 36}.cue"
+    source.write_text('FILE "track.bin" BINARY\n', encoding="utf-8")
+    output = tmp_path / "output"
+    config = PlanningConfig(
+        output_dir=str(output),
+        formats=MappingProxyType({".cue": FormatConfig("createcd", ())}),
+    )
+    jobs = plan_jobs([source_dir], config)
+    job = jobs[0]
+    staged_output = str(
+        Path(staging_path_for(job["destination"]["path"], "test-run", job["job_id"]))
+        / "output.chd"
+    )
+    expected_arguments = [
+        "createcd",
+        "-i",
+        str(source),
+        "-o",
+        staged_output,
+    ]
+    fake = fake_chdman_factory(
+        {
+            "by_input": {
+                str(source): {
+                    "expected_args": expected_arguments,
+                    "expected_cwd": str(Path(job["destination"]["path"]).parent),
+                }
+            }
+        }
+    )
+
+    outcome = run_jobs(jobs, chdman=fake.command, options=_options(fake, tmp_path))
+
+    assert len(str(source)) >= len(str(tmp_path)) + 90
+    assert outcome.results[0]["status"] == "success"
+    assert fake.read_record()["args"] == expected_arguments
+    assert Path(outcome.results[0]["output_path"]).is_file()
+
+
 @pytest.mark.parametrize(
     "behavior, error_fragment",
     [
@@ -440,10 +485,13 @@ def test_one_process_budget_and_plan_order_when_completion_is_out_of_order(
 ) -> None:
     jobs, sources, _ = _jobs(tmp_path, count=4)
     behaviors = {
-        str(source): {"delay_seconds": 0.25 if index == 0 else 0.1}
+        str(source): {"delay_seconds": 0.35 if index == 0 else 0.2}
         for index, source in enumerate(sources)
     }
-    fake = fake_chdman_factory({"by_input": behaviors})
+    concurrency_directory = tmp_path / "fake-concurrency"
+    fake = fake_chdman_factory(
+        {"by_input": behaviors, "concurrency_dir": str(concurrency_directory)}
+    )
     started = time.monotonic()
     outcome = run_jobs(
         jobs,
@@ -451,9 +499,149 @@ def test_one_process_budget_and_plan_order_when_completion_is_out_of_order(
         options=_options(fake, tmp_path, workers=2),
     )
     elapsed = time.monotonic() - started
-    assert 0.25 <= elapsed < 1.2
+    assert 0.35 <= elapsed < 1.2
     assert [result["plan_index"] for result in outcome.results] == [0, 1, 2, 3]
     assert all(result["status"] == "success" for result in outcome.results)
+    observed = {
+        int(path.name.removeprefix("observed-"))
+        for path in concurrency_directory.glob("observed-*")
+    }
+    assert max(observed) == 2
+    assert list(concurrency_directory.glob("active-*")) == []
+
+
+def test_rename_reservations_follow_plan_order_not_worker_arrival(
+    tmp_path: Path,
+    fake_chdman_factory: Callable[[dict[str, Any]], FakeChdman],
+) -> None:
+    source_dir = tmp_path / "sources"
+    source_dir.mkdir()
+    for name in ("game.iso", "game (1).iso"):
+        (source_dir / name).write_bytes(name.encode())
+    output = tmp_path / "output"
+    config = PlanningConfig(
+        output_dir=str(output),
+        formats=MappingProxyType({".iso": FormatConfig("createdvd", ("-c", "zlib"))}),
+        existing="rename",
+    )
+    jobs = plan_jobs([source_dir], config)
+    by_name = {Path(job["source"]["path"]).name: job for job in jobs}
+    base_destination = Path(by_name["game.iso"]["destination"]["path"])
+    base_destination.parent.mkdir(parents=True)
+    base_destination.write_bytes(b"existing")
+    first_base = Path(jobs[0]["destination"]["path"])
+    second_base = Path(jobs[1]["destination"]["path"])
+    second_initial = second_base.with_name(f"{second_base.stem} (2).chd")
+    fake = fake_chdman_factory(
+        {
+            "by_input": {
+                jobs[0]["source"]["path"]: {
+                    "race_destination": str(first_base),
+                    "race_bytes": "first-race",
+                },
+                jobs[1]["source"]["path"]: {
+                    "race_destination": str(second_initial),
+                    "race_bytes": "second-race",
+                },
+            }
+        }
+    )
+    later_worker_reached_validation = threading.Event()
+    real_validate = __import__(
+        "chdmanpy.runner", fromlist=["_validate_regular_source"]
+    )._validate_regular_source
+
+    def reverse_worker_arrival(
+        job: dict[str, object],
+    ) -> tuple[list[str], str | None]:
+        if job["plan_index"] == 0:
+            assert later_worker_reached_validation.wait(timeout=5)
+        else:
+            later_worker_reached_validation.set()
+        return real_validate(job)
+
+    with patch(
+        "chdmanpy.runner._validate_regular_source",
+        side_effect=reverse_worker_arrival,
+    ):
+        outcome = run_jobs(
+            jobs,
+            chdman=fake.command,
+            options=_options(fake, tmp_path, workers=2),
+        )
+
+    assert all(result["status"] == "success" for result in outcome.results)
+    assert Path(outcome.results[0]["output_path"]) == first_base.with_name(
+        f"{first_base.stem} (1).chd"
+    )
+    assert Path(outcome.results[1]["output_path"]) == second_base.with_name(
+        f"{second_base.stem} (3).chd"
+    )
+    assert base_destination.read_bytes() == b"existing"
+    assert first_base.read_bytes() == b"first-race"
+    assert second_initial.read_bytes() == b"second-race"
+
+
+def test_keyboard_interrupt_during_submit_accounts_every_job(
+    tmp_path: Path,
+    fake_chdman_factory: Callable[[dict[str, Any]], FakeChdman],
+) -> None:
+    jobs, _, _ = _jobs(tmp_path, count=2)
+    fake = fake_chdman_factory({})
+    real_submit = __import__(
+        "chdmanpy.runner", fromlist=["ThreadPoolExecutor"]
+    ).ThreadPoolExecutor.submit
+
+    def submit_then_interrupt(
+        executor: object, *args: object, **kwargs: object
+    ) -> None:
+        real_submit(executor, *args, **kwargs)
+        raise KeyboardInterrupt
+
+    with patch("chdmanpy.runner.ThreadPoolExecutor.submit", new=submit_then_interrupt):
+        outcome = run_jobs(
+            jobs,
+            chdman=fake.command,
+            options=_options(fake, tmp_path, workers=1),
+        )
+
+    assert outcome.exit_code == ExitCode.INTERRUPTED
+    assert outcome.summary["total"] == 2
+    assert [result["plan_index"] for result in outcome.results] == [0, 1]
+    assert all(result["status"] == "interrupted" for result in outcome.results)
+
+
+def test_keyboard_interrupt_after_future_result_returns_exit_130(
+    tmp_path: Path,
+    fake_chdman_factory: Callable[[dict[str, Any]], FakeChdman],
+) -> None:
+    jobs, _, _ = _jobs(tmp_path)
+    fake = fake_chdman_factory({})
+    future_type = __import__("chdmanpy.runner", fromlist=["Future"]).Future
+    real_result = future_type.result
+    interrupted = False
+
+    def result_then_interrupt(
+        future: object, *args: object, **kwargs: object
+    ) -> object:
+        nonlocal interrupted
+        result = real_result(future, *args, **kwargs)
+        if not interrupted:
+            interrupted = True
+            raise KeyboardInterrupt
+        return result
+
+    with patch.object(future_type, "result", result_then_interrupt):
+        outcome = run_jobs(
+            jobs,
+            chdman=fake.command,
+            options=_options(fake, tmp_path),
+        )
+
+    assert outcome.exit_code == ExitCode.INTERRUPTED
+    assert outcome.summary["total"] == 1
+    assert outcome.results[0]["status"] == "success"
+    assert Path(outcome.results[0]["output_path"]).is_file()
 
 
 def test_cancel_event_interrupts_owned_child_and_pending_jobs(

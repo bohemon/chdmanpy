@@ -57,10 +57,11 @@ def test_discovery_precedence_and_real_nonzero_help_exit(
     expected_source: str,
     expected_program: str,
 ) -> None:
+    resolved_directory = Path.cwd() / "resolved"
     with (
         patch(
             "chdmanpy.chdman.shutil.which",
-            side_effect=lambda value, path=None: f"/resolved/{value}",
+            side_effect=lambda value, path=None: str(resolved_directory / value),
         ),
         patch("chdmanpy.chdman.subprocess.run", return_value=_probe_result()) as probe,
     ):
@@ -71,10 +72,11 @@ def test_discovery_precedence_and_real_nonzero_help_exit(
         )
 
     assert executable.source == expected_source
-    assert executable.command == (f"/resolved/{expected_program}",)
+    resolved_program = str(resolved_directory / expected_program)
+    assert executable.command == (resolved_program,)
     assert "Compressed Hunks" in executable.description
     call = probe.call_args
-    assert call.args[0] == [f"/resolved/{expected_program}", "-help"]
+    assert call.args[0] == [resolved_program, "-help"]
     assert call.kwargs["shell"] is False
     assert call.kwargs["stdin"] is subprocess.DEVNULL
     assert call.kwargs["capture_output"] is True

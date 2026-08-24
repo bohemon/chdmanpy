@@ -523,7 +523,10 @@ def _publish_no_clobber(
 
 
 def _execute_job(
-    job: Mapping[str, Any], context: _RunContext, log_directory: str
+    job: Mapping[str, Any],
+    context: _RunContext,
+    log_directory: str,
+    reservation: tuple[str, bool],
 ) -> dict[str, Any]:
     started_clock = time.monotonic()
     started_at = _utc_now()
@@ -553,9 +556,7 @@ def _execute_job(
         )
 
     policy = job["destination"]["existing"]
-    destination, collision = context.reserve_destination(
-        job["destination"]["path"], policy
-    )
+    destination, collision = reservation
     if collision and policy == "fail":
         return _result(
             job,
@@ -962,6 +963,12 @@ def run_jobs(
         run_id=run_id,
         run_log_path=run_log_path,
     )
+    reservations = {
+        job["plan_index"]: context.reserve_destination(
+            job["destination"]["path"], job["destination"]["existing"]
+        )
+        for job in jobs
+    }
     context.log(
         f"run started: jobs={len(jobs)} workers={workers} executable_source={executable.source}"
     )
@@ -969,12 +976,25 @@ def run_jobs(
     pending = deque(jobs)
     futures: dict[Future[dict[str, Any]], Mapping[str, Any]] = {}
     results_by_index: dict[int, dict[str, Any]] = {}
+    results_lock = threading.Lock()
     stop_scheduling = False
     interrupted = context.cancel_event.is_set()
     if interrupted:
         context.request_interruption()
 
     executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="chdmanpy")
+
+    def execute_and_record(job: Mapping[str, Any]) -> dict[str, Any]:
+        result = _execute_job(
+            job,
+            context,
+            log_directory,
+            reservations[job["plan_index"]],
+        )
+        with results_lock:
+            results_by_index[job["plan_index"]] = result
+        return result
+
     try:
         while pending or futures:
             if context.cancel_event.is_set() and not interrupted:
@@ -988,14 +1008,15 @@ def run_jobs(
                 and not stop_scheduling
                 and not interrupted
             ):
-                job = pending.popleft()
-                future = executor.submit(_execute_job, job, context, log_directory)
+                job = pending[0]
+                future = executor.submit(execute_and_record, job)
                 futures[future] = job
+                pending.popleft()
             if not futures:
                 break
             completed, _ = wait(futures, timeout=0.05, return_when=FIRST_COMPLETED)
             for future in completed:
-                job = futures.pop(future)
+                job = futures[future]
                 try:
                     result = future.result()
                 except Exception as error:  # defensive boundary around worker futures
@@ -1005,34 +1026,51 @@ def run_jobs(
                         status="failed",
                         error=str(error) or type(error).__name__,
                     )
-                results_by_index[job["plan_index"]] = result
+                    with results_lock:
+                        results_by_index[job["plan_index"]] = result
                 context.log(
                     f"job completed: plan_index={job['plan_index']} status={result['status']}"
                 )
                 if selected_options.fail_fast and result["status"] == "failed":
                     stop_scheduling = True
+                del futures[future]
     except KeyboardInterrupt:
         interrupted = True
         context.request_interruption()
         stop_scheduling = True
         context.cancel_event.set()
         context.terminate_all()
-        for future, job in list(futures.items()):
-            try:
-                results_by_index[job["plan_index"]] = future.result(
-                    timeout=selected_options.termination_timeout * 3
-                )
-            except Exception:
-                results_by_index[job["plan_index"]] = _not_started_result(
-                    job, run_id, interrupted=True
-                )
-        futures.clear()
     finally:
         executor.shutdown(wait=True, cancel_futures=False)
 
+    for future, job in list(futures.items()):
+        if job["plan_index"] in results_by_index:
+            continue
+        try:
+            result = future.result()
+        except BaseException as error:
+            result = (
+                _not_started_result(job, run_id, interrupted=True)
+                if interrupted
+                else _result(
+                    job,
+                    run_id,
+                    status="failed",
+                    error=str(error) or type(error).__name__,
+                )
+            )
+        results_by_index.setdefault(job["plan_index"], result)
+    futures.clear()
+
     for job in pending:
-        results_by_index[job["plan_index"]] = _not_started_result(
-            job, run_id, interrupted=interrupted
+        results_by_index.setdefault(
+            job["plan_index"],
+            _not_started_result(job, run_id, interrupted=interrupted),
+        )
+    for job in jobs:
+        results_by_index.setdefault(
+            job["plan_index"],
+            _not_started_result(job, run_id, interrupted=interrupted),
         )
     results = [results_by_index[index] for index in range(len(jobs))]
     counts = Counter(result["status"] for result in results)
@@ -1045,7 +1083,11 @@ def run_jobs(
         "duration_ms": _duration_ms(run_started),
     }
     validated_results, validated_summary = validate_result_stream([*results, summary])
-    exit_code = exit_code_for_results(validated_results, validated_summary)
+    exit_code = (
+        ExitCode.INTERRUPTED
+        if interrupted
+        else exit_code_for_results(validated_results, validated_summary)
+    )
     context.log(f"run finished: exit_code={int(exit_code)}")
     return RunOutcome(
         results=validated_results,

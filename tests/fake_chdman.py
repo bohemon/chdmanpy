@@ -9,6 +9,7 @@ are inspected; the fake never records the caller's environment.
 
 from __future__ import annotations
 
+import atexit
 import base64
 import json
 import os
@@ -142,6 +143,22 @@ def main() -> int:
             return USAGE_EXIT
         control = {**control, **behavior}
 
+    active_marker: Path | None = None
+
+    def cleanup_concurrency_marker() -> None:
+        if active_marker is not None:
+            active_marker.unlink(missing_ok=True)
+
+    concurrency_name = control.get("concurrency_dir")
+    if output_path is not None and concurrency_name is not None:
+        concurrency_directory = Path(str(concurrency_name))
+        concurrency_directory.mkdir(parents=True, exist_ok=True)
+        active_marker = concurrency_directory / f"active-{os.getpid()}"
+        active_marker.open("xb").close()
+        atexit.register(cleanup_concurrency_marker)
+        active_count = sum(1 for _ in concurrency_directory.glob("active-*"))
+        (concurrency_directory / f"observed-{active_count}").touch()
+
     expected_arguments = control.get("expected_args")
     if expected_arguments is not None and arguments != expected_arguments:
         mismatches.append(
@@ -177,6 +194,7 @@ def main() -> int:
         record["exit_code"] = int(
             control.get("interrupted_exit_code", INTERRUPTED_EXIT)
         )
+        cleanup_concurrency_marker()
         _write_record(record)
         raise SystemExit(record["exit_code"])
 
@@ -255,6 +273,7 @@ def main() -> int:
     record["output_exists"] = bool(output_path and output_path.exists())
     record["state"] = "completed"
     _write_record(record)
+    cleanup_concurrency_marker()
     return configured_exit
 
 
