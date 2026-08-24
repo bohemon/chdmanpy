@@ -51,6 +51,12 @@ class JsonLinesTests(unittest.TestCase):
             ):
                 loads_json_lines(io.BytesIO(value))
 
+    def test_nesting_scan_ignores_brackets_inside_strings(self) -> None:
+        value = {"text": '[{"escaped": "\\\\"}]' * 1_000}
+        raw = (json.dumps(value) + "\n").encode()
+
+        self.assertEqual(loads_json_lines(io.BytesIO(raw)), [value])
+
     def test_output_round_trips_special_paths_without_diagnostics(self) -> None:
         record = {"path": '/tmp/日本語/space "quote"\\backslash\nline'}
         output = io.StringIO()

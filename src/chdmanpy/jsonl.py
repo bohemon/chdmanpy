@@ -11,6 +11,7 @@ from typing import Any, BinaryIO, TextIO
 from chdmanpy.errors import ContractError
 
 MAX_JSON_INTEGER_DIGITS = 4_300
+MAX_JSON_NESTING = 256
 
 
 def canonical_json_bytes(value: object) -> bytes:
@@ -60,6 +61,31 @@ def _parse_float(value: str) -> float:
     return parsed
 
 
+def _reject_excessive_nesting(value: str) -> None:
+    depth = 0
+    in_string = False
+    escaped = False
+    for character in value:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > MAX_JSON_NESTING:
+                raise ContractError(
+                    f"JSON nesting exceeds {MAX_JSON_NESTING} containers"
+                )
+        elif character in "]}" and depth:
+            depth -= 1
+
+
 def loads_json_lines(stream: BinaryIO) -> list[dict[str, Any]]:
     """Read a complete BOM-free UTF-8 JSON Lines stream.
 
@@ -93,6 +119,7 @@ def loads_json_lines(stream: BinaryIO) -> list[dict[str, Any]]:
         if not line.strip():
             raise ContractError(f"blank JSON Lines record at line {line_number}")
         try:
+            _reject_excessive_nesting(line)
             value = json.loads(
                 line,
                 object_pairs_hook=_reject_duplicate_keys,
