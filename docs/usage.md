@@ -85,11 +85,11 @@ Planning options are available on `plan` and `convert`:
 | Option | Purpose |
 | --- | --- |
 | `--output-dir DIR` | Output root; required unless supplied by environment or TOML. |
-| `--preset others|ps2|psp` | Select a bundled format preset; the default is `others`. |
+| `--preset others\|ps2\|psp` | Select a bundled format preset; the default is `others`. |
 | `--config FILE` | Read strict UTF-8 TOML configuration. |
-| `--existing fail|skip|rename` | Existing-output policy; the default is `fail`. |
+| `--existing fail\|skip\|rename` | Existing-output policy; the default is `fail`. |
 | `--priority INTEGER` | Record a signed 32-bit scheduling priority in the manifest. |
-| `--on-upstream-error fail|skip` | Handle non-clean ArcShuttle results; valid only with `--arcshuttle-results`. |
+| `--on-upstream-error fail\|skip` | Handle non-clean ArcShuttle results; valid only with `--arcshuttle-results`. |
 
 Runtime options are available on `run` and `convert`; `run` also accepts
 `--config FILE`:

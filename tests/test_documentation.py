@@ -16,7 +16,13 @@ DOCUMENTS = (
 )
 USAGE_DOCUMENTS = (ROOT / "docs" / "usage.md", ROOT / "docs" / "usage.ja.md")
 INSTALL_DOCUMENTS = (ROOT / "README.md", ROOT / "README.ja.md", *USAGE_DOCUMENTS)
+JAPANESE_DOCUMENTS = (
+    ROOT / "README.ja.md",
+    ROOT / "docs" / "usage.ja.md",
+    ROOT / "docs" / "arcshuttle-schema-v2.ja.md",
+)
 LINK_RE = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
+TABLE_DELIMITER_RE = re.compile(r"(?<!\\)\|")
 TAGGED_INSTALL = (
     'pipx install "chdmanpy @ git+https://github.com/bohemon/chdmanpy.git@v0.1.0"'
 )
@@ -72,6 +78,51 @@ def test_local_markdown_links_resolve_inside_repository(document: Path) -> None:
         assert resolved.exists(), f"missing link target in {document}: {raw_target}"
 
 
+@pytest.mark.parametrize("document", DOCUMENTS, ids=lambda path: path.name)
+def test_markdown_tables_are_outside_fences_and_have_stable_columns(
+    document: Path,
+) -> None:
+    fence: str | None = None
+    expected_delimiters: int | None = None
+    for line_number, line in enumerate(
+        document.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            fence = None if fence == marker else marker
+            expected_delimiters = None
+            continue
+        if not stripped.startswith("|"):
+            expected_delimiters = None
+            continue
+        assert fence is None, f"table inside code fence: {document}:{line_number}"
+        delimiters = len(TABLE_DELIMITER_RE.findall(stripped))
+        assert delimiters >= 3, f"invalid table row: {document}:{line_number}"
+        if expected_delimiters is None:
+            expected_delimiters = delimiters
+        assert delimiters == expected_delimiters, (
+            f"inconsistent table columns: {document}:{line_number}"
+        )
+
+
+@pytest.mark.parametrize("document", JAPANESE_DOCUMENTS, ids=lambda path: path.name)
+def test_japanese_prose_does_not_use_english_verbs(document: Path) -> None:
+    text = document.read_text(encoding="utf-8")
+    unnatural_phrases = (
+        "## install",
+        "supportします",
+        "supportする",
+        "installします",
+        "installして",
+        "installする",
+        "downloadし",
+        "copyします",
+    )
+    found = [phrase for phrase in unnatural_phrases if phrase in text]
+    assert not found, f"unnatural Japanese remains in {document.name}: {found}"
+
+
 @pytest.mark.parametrize("document", USAGE_DOCUMENTS, ids=lambda path: path.name)
 def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
     text = document.read_text(encoding="utf-8")
@@ -86,7 +137,6 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
         "pipx uninstall chdmanpy",
         "python -m pip install --upgrade chdmanpy",
         "python -m pip uninstall chdmanpy",
-        "virtual environment",
         "python -m chdmanpy",
         "chdmanpy plan",
         "chdmanpy run",
@@ -128,18 +178,38 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
         "CHDMANPY_PRIORITY",
         "CHDMANPY_PRESET",
         "CHDMANPY_CHDMAN",
-        "| `CHDMANPY_OUTPUT_DIR` | `<path>`:",
+        "`<path>`",
         "| `CHDMANPY_EXISTING` | `fail` / `skip` / `rename`",
-        "| `CHDMANPY_PRIORITY` | `-2147483648..2147483647`:",
+        "`-2147483648..2147483647`",
         "| `CHDMANPY_PRESET` | `others` / `ps2` / `psp`",
-        "| `CHDMANPY_CHDMAN` | `<executable-name-or-path>`:",
-        "shell fragment",
+        "`<executable-name-or-path>`",
     )
     missing_configuration = [
         term for term in aligned_configuration_terms if term not in text
     ]
     assert not missing_configuration, (
         f"{document.name} omits aligned configuration: {missing_configuration}"
+    )
+
+    language_terms = {
+        "usage.md": (
+            "virtual environment",
+            "Planning options",
+            "Runtime options",
+            "shell fragments",
+        ),
+        "usage.ja.md": (
+            "仮想環境",
+            "計画オプション",
+            "実行オプション",
+            "シェル断片",
+        ),
+    }
+    missing_language_terms = [
+        term for term in language_terms[document.name] if term not in text
+    ]
+    assert not missing_language_terms, (
+        f"{document.name} omits language-specific terms: {missing_language_terms}"
     )
 
 
