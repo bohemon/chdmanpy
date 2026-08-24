@@ -20,10 +20,16 @@ hatch build
 hatch run smoke-wheel
 ```
 
-The artifact smoke test checks that the sdist contains both READMEs, the
-normative manuals, and the optional PowerShell helper. It then installs the
-universal wheel with `--no-index --no-deps` and checks both entry points,
-bundled presets, and installed CLI help without importing the source checkout.
+The release smoke test checks wheel/sdist metadata against an explicit content
+allowlist and rejects repository caches, legacy preset examples, downloaded
+binaries, and build leftovers. It verifies that the wheel-packaged READMEs and
+manuals match their repository sources and that their internal links resolve.
+It then installs the universal wheel with `--no-index --no-deps` outside the
+checkout and exercises both entry points,
+bundled presets, direct conversion, manifest execution, ArcShuttle-result
+ingestion, historical `[options]` TOML, logs, representative failure, malformed
+upstream input, process interruption, manifest-collision preflight, and
+non-destructive existing-output handling through the deterministic fake CHDMAN.
 
 `hatch run check` also validates local Markdown links and the aligned English
 and Japanese command documentation.

@@ -46,9 +46,10 @@ direct pipelineを使う前にusage manualを確認してください。
 
 ## 文書
 
-- [usageと移行guide](docs/usage.ja.md)
-  ([English](docs/usage.md))
-- [chdmanpy JSON Lines schema v1](docs/schema-v1.md)
-- [ArcShuttle schema-v2の取り込み](docs/arcshuttle-schema-v2.ja.md)
-  ([English](docs/arcshuttle-schema-v2.md))
-- [test](docs/testing.md)
+- [usageと移行guide](https://github.com/bohemon/chdmanpy/blob/main/docs/usage.ja.md)
+  ([English](https://github.com/bohemon/chdmanpy/blob/main/docs/usage.md))
+- [chdmanpy JSON Lines schema v1](https://github.com/bohemon/chdmanpy/blob/main/docs/schema-v1.md)
+- [ArcShuttle schema-v2の取り込み](https://github.com/bohemon/chdmanpy/blob/main/docs/arcshuttle-schema-v2.ja.md)
+  ([English](https://github.com/bohemon/chdmanpy/blob/main/docs/arcshuttle-schema-v2.md))
+- [test](https://github.com/bohemon/chdmanpy/blob/main/docs/testing.md)
+- [0.1.0 release notes](https://github.com/bohemon/chdmanpy/blob/main/docs/release-notes-0.1.0.md)

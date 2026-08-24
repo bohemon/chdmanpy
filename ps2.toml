@@ -1,3 +1,0 @@
-[options]
-".iso" = ["createdvd", "-c", "zlib"]
-".cue" = ["createcd"]
