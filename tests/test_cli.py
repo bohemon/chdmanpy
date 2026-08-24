@@ -72,7 +72,7 @@ class CliContractTests(unittest.TestCase):
             exit_code = main(["run", "--manifest", "-"])
         self.assertEqual(exit_code, ExitCode.USAGE)
         self.assertEqual(stdout.getvalue(), "")
-        self.assertIn("not implemented", stderr.getvalue())
+        self.assertIn("cannot read manifest", stderr.getvalue())
 
     def test_unknown_command_returns_usage_exit(self) -> None:
         stdout = io.StringIO()

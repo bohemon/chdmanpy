@@ -11,8 +11,10 @@ from pathlib import Path
 EXPECTED_VERSION = "chdmanpy 0.1.0\n"
 
 
-def _run(command: list[str], *, cwd: Path, environment: dict[str, str]) -> str:
-    completed = subprocess.run(
+def _invoke(
+    command: list[str], *, cwd: Path, environment: dict[str, str]
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         command,
         cwd=cwd,
         env=environment,
@@ -23,6 +25,10 @@ def _run(command: list[str], *, cwd: Path, environment: dict[str, str]) -> str:
         check=False,
         timeout=60,
     )
+
+
+def _run(command: list[str], *, cwd: Path, environment: dict[str, str]) -> str:
+    completed = _invoke(command, cwd=cwd, environment=environment)
     if completed.returncode != 0:
         raise RuntimeError(
             f"command failed with exit {completed.returncode}: {command!r}\n"
@@ -79,6 +85,16 @@ def main(argv: list[str] | None = None) -> int:
             cwd=root,
             environment=environment,
         )
+        module_plan_help = _run(
+            [str(python), "-m", "chdmanpy", "plan", "--help"],
+            cwd=root,
+            environment=environment,
+        )
+        console_plan_help = _run(
+            [str(console), "plan", "--help"],
+            cwd=root,
+            environment=environment,
+        )
         preset_smoke = (
             "from chdmanpy.config import load_preset;"
             "names=('others','ps2','psp');"
@@ -95,6 +111,43 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError(
                 "installed entry points returned unexpected versions: "
                 f"module={module_version!r}, console={console_version!r}"
+            )
+        if module_plan_help != console_plan_help:
+            raise RuntimeError(
+                "installed console and module entry points expose different plan help"
+            )
+        source = root / "disc 日本語.iso"
+        source.write_bytes(b"iso")
+        processing_arguments = [
+            "plan",
+            str(source),
+            "--preset",
+            "ps2",
+            "--output-dir",
+            str(root / "output"),
+        ]
+        module_plan = _invoke(
+            [str(python), "-m", "chdmanpy", *processing_arguments],
+            cwd=root,
+            environment=environment,
+        )
+        console_plan = _invoke(
+            [str(console), *processing_arguments],
+            cwd=root,
+            environment=environment,
+        )
+        if (
+            module_plan.returncode,
+            module_plan.stdout,
+            module_plan.stderr,
+        ) != (
+            console_plan.returncode,
+            console_plan.stdout,
+            console_plan.stderr,
+        ) or module_plan.returncode != 0:
+            raise RuntimeError(
+                "installed console and module processing paths differ:\n"
+                f"module={module_plan!r}\nconsole={console_plan!r}"
             )
     return 0
 
