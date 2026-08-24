@@ -492,11 +492,13 @@ def test_one_process_budget_and_plan_order_when_completion_is_out_of_order(
     fake = fake_chdman_factory(
         {"by_input": behaviors, "concurrency_dir": str(concurrency_directory)}
     )
+    environment = dict(fake.environment)
+    environment.pop("FAKE_CHDMAN_RECORD")
     started = time.monotonic()
     outcome = run_jobs(
         jobs,
         chdman=fake.command,
-        options=_options(fake, tmp_path, workers=2),
+        options=_options(fake, tmp_path, workers=2, environment=environment),
     )
     elapsed = time.monotonic() - started
     assert 0.35 <= elapsed < 1.2
@@ -546,6 +548,8 @@ def test_rename_reservations_follow_plan_order_not_worker_arrival(
             }
         }
     )
+    environment = dict(fake.environment)
+    environment.pop("FAKE_CHDMAN_RECORD")
     later_worker_reached_validation = threading.Event()
     real_validate = __import__(
         "chdmanpy.runner", fromlist=["_validate_regular_source"]
@@ -567,10 +571,13 @@ def test_rename_reservations_follow_plan_order_not_worker_arrival(
         outcome = run_jobs(
             jobs,
             chdman=fake.command,
-            options=_options(fake, tmp_path, workers=2),
+            options=_options(fake, tmp_path, workers=2, environment=environment),
         )
 
-    assert all(result["status"] == "success" for result in outcome.results)
+    assert [result["status"] for result in outcome.results] == [
+        "success",
+        "success",
+    ], outcome.results
     assert Path(outcome.results[0]["output_path"]) == first_base.with_name(
         f"{first_base.stem} (1).chd"
     )
