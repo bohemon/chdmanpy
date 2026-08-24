@@ -3,3 +3,24 @@ input/
 output/
 .agents/
 chdman.exe
+chdman
+mame*.zip
+
+# Python caches and build output
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Local environments and editor state
+.venv/
+venv/
+env/
+.idea/
+.vscode/
