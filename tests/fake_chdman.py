@@ -115,28 +115,6 @@ def main() -> int:
     }
     mismatches: list[str] = []
 
-    expected_arguments = control.get("expected_args")
-    if expected_arguments is not None and arguments != expected_arguments:
-        mismatches.append(
-            f"args differ: expected {expected_arguments!r}, observed {arguments!r}"
-        )
-    expected_cwd = control.get("expected_cwd")
-    if expected_cwd is not None and record["cwd"] != expected_cwd:
-        mismatches.append(
-            f"cwd differs: expected {expected_cwd!r}, observed {record['cwd']!r}"
-        )
-
-    if control.get("probe_stdin", False):
-        observed = sys.stdin.buffer.read(1)
-        record["stdin_eof"] = observed == b""
-        record["stdin_bytes_read"] = len(observed)
-        expected_eof = control.get("expected_stdin_eof")
-        if expected_eof is not None and record["stdin_eof"] is not expected_eof:
-            mismatches.append(
-                "stdin EOF policy differs: "
-                f"expected {expected_eof!r}, observed {record['stdin_eof']!r}"
-            )
-
     help_request = arguments == ["-help"]
     operation_help_request = (
         len(arguments) == 2 and arguments[0] == "help" and arguments[1] in OPERATIONS
@@ -152,17 +130,45 @@ def main() -> int:
             invocation_error = input_error or output_error
             record["input_path"] = input_name
             record["output_path"] = output_name
-            if (
-                invocation_error is None
-                and control.get("require_input_exists", True)
-                and input_name is not None
-                and not Path(input_name).is_file()
-            ):
-                invocation_error = f"input does not exist: {input_name}"
 
     output_path = (
         Path(record["output_path"]) if record["output_path"] is not None else None
     )
+    by_input = control.get("by_input", {})
+    if isinstance(by_input, dict) and record["input_path"] in by_input:
+        behavior = by_input[record["input_path"]]
+        if not isinstance(behavior, dict):
+            print("fake chdman: by_input behavior must be an object", file=sys.stderr)
+            return USAGE_EXIT
+        control = {**control, **behavior}
+
+    expected_arguments = control.get("expected_args")
+    if expected_arguments is not None and arguments != expected_arguments:
+        mismatches.append(
+            f"args differ: expected {expected_arguments!r}, observed {arguments!r}"
+        )
+    expected_cwd = control.get("expected_cwd")
+    if expected_cwd is not None and record["cwd"] != expected_cwd:
+        mismatches.append(
+            f"cwd differs: expected {expected_cwd!r}, observed {record['cwd']!r}"
+        )
+    if control.get("probe_stdin", False):
+        observed = sys.stdin.buffer.read(1)
+        record["stdin_eof"] = observed == b""
+        record["stdin_bytes_read"] = len(observed)
+        expected_eof = control.get("expected_stdin_eof")
+        if expected_eof is not None and record["stdin_eof"] is not expected_eof:
+            mismatches.append(
+                "stdin EOF policy differs: "
+                f"expected {expected_eof!r}, observed {record['stdin_eof']!r}"
+            )
+    if (
+        invocation_error is None
+        and control.get("require_input_exists", True)
+        and record["input_path"] is not None
+        and not Path(record["input_path"]).is_file()
+    ):
+        invocation_error = f"input does not exist: {record['input_path']}"
 
     def handle_signal(signum: int, _frame: object) -> None:
         record["state"] = "interrupted"
@@ -222,8 +228,29 @@ def main() -> int:
         "create_output", output_path is not None and configured_exit == 0
     )
     if create_output and output_path is not None and configured_exit == 0:
+        output_kind = str(control.get("output_kind", "regular"))
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(_output_bytes(control))
+        if output_kind == "regular":
+            output_path.write_bytes(_output_bytes(control))
+        elif output_kind == "directory":
+            output_path.mkdir()
+        elif output_kind == "symlink":
+            target = output_path.with_name(f"{output_path.name}.target")
+            target.write_bytes(_output_bytes(control))
+            output_path.symlink_to(target)
+        else:
+            print(f"fake chdman: unknown output_kind {output_kind!r}", file=sys.stderr)
+            configured_exit = USAGE_EXIT
+        race_destination = control.get("race_destination")
+        if race_destination is not None:
+            race_path = Path(str(race_destination))
+            race_path.parent.mkdir(parents=True, exist_ok=True)
+            race_path.write_bytes(str(control.get("race_bytes", "racer")).encode())
+
+    tampered_owner = control.get("tamper_owner_text")
+    if output_path is not None and tampered_owner is not None:
+        marker = output_path.parent / ".chdmanpy-owner"
+        marker.write_text(str(tampered_owner), encoding="utf-8")
 
     record["output_exists"] = bool(output_path and output_path.exists())
     record["state"] = "completed"

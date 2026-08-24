@@ -41,7 +41,16 @@ class PlanningError(ChdmanpyError, ValueError):
     """Raised when filesystem inputs cannot produce a safe job plan."""
 
 
+class ChdmanError(ChdmanpyError, ValueError):
+    """Raised when the external CHDMAN runtime is invalid or unusable."""
+
+
+class RunnerError(ChdmanpyError, RuntimeError):
+    """Raised when a run cannot be initialized safely."""
+
+
 __all__ = [
+    "ChdmanError",
     "ChdmanpyError",
     "CliUsageError",
     "ConfigurationError",
@@ -49,4 +58,5 @@ __all__ = [
     "ExitCode",
     "InputError",
     "PlanningError",
+    "RunnerError",
 ]

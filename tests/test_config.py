@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from chdmanpy.config import FormatConfig, load_preset, resolve_config
+from chdmanpy.config import (
+    FormatConfig,
+    load_preset,
+    resolve_config,
+    resolve_runtime_config,
+)
 from chdmanpy.errors import ConfigurationError
 
 
@@ -146,3 +151,30 @@ def test_output_directory_expands_user_before_resolving_from_cwd(
     config = resolve_config(output_dir="~/out", environ={}, cwd=tmp_path / "work")
 
     assert config.output_dir == str(home / "out")
+
+
+def test_runtime_chdman_precedence_and_strict_keys(tmp_path: Path) -> None:
+    config_file = tmp_path / "runtime.toml"
+    config_file.write_text('[runtime]\nchdman = "tools/chdman"\n', encoding="utf-8")
+    from_file = resolve_runtime_config(
+        config_path=config_file, environ={}, cwd=tmp_path
+    )
+    assert from_file.chdman == str(tmp_path / "tools" / "chdman")
+    from_environment = resolve_runtime_config(
+        config_path=config_file,
+        environ={"CHDMANPY_CHDMAN": "environment-chdman"},
+        cwd=tmp_path,
+    )
+    assert from_environment.chdman == "environment-chdman"
+    from_cli = resolve_runtime_config(
+        chdman="cli-chdman",
+        config_path=config_file,
+        environ={"CHDMANPY_CHDMAN": "environment-chdman"},
+        cwd=tmp_path,
+    )
+    assert from_cli.chdman == "cli-chdman"
+
+    invalid = tmp_path / "invalid-runtime.toml"
+    invalid.write_text("[runtime]\nworkers = 2\n", encoding="utf-8")
+    with pytest.raises(ConfigurationError, match="unknown"):
+        resolve_runtime_config(config_path=invalid, environ={})
