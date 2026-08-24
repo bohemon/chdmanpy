@@ -27,13 +27,18 @@ class FakeChdman:
         """Read the latest complete observation record."""
         return json.loads(self.record_path.read_text(encoding="utf-8"))
 
-    def wait_until_running(self, timeout: float = 5.0) -> dict[str, Any]:
-        """Wait for the child to publish its running state."""
+    def wait_until_running(
+        self, timeout: float = 5.0, *, expected_input_path: str | None = None
+    ) -> dict[str, Any]:
+        """Wait for the selected child invocation to publish its running state."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if self.record_path.exists():
                 record = self.read_record()
-                if record.get("state") == "running":
+                if record.get("state") == "running" and (
+                    expected_input_path is None
+                    or record.get("input_path") == expected_input_path
+                ):
                     return record
             time.sleep(0.02)
         raise AssertionError("fake CHDMAN did not reach the running state")

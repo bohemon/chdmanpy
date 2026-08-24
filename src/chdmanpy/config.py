@@ -18,10 +18,12 @@ from chdmanpy.manifest import ALLOWED_OPERATIONS, EXISTING_POLICIES
 DEFAULT_PRESET = "others"
 PRESET_NAMES = ("others", "ps2", "psp")
 
-_TOP_LEVEL_KEYS = frozenset({"options", "planning"})
+_TOP_LEVEL_KEYS = frozenset({"options", "planning", "runtime"})
 _PLANNING_KEYS = frozenset({"output_dir", "existing", "priority"})
+_RUNTIME_KEYS = frozenset({"chdman"})
 _ENVIRONMENT_KEYS = frozenset(
     {
+        "CHDMANPY_CHDMAN",
         "CHDMANPY_EXISTING",
         "CHDMANPY_OUTPUT_DIR",
         "CHDMANPY_PRESET",
@@ -49,6 +51,13 @@ class PlanningConfig:
     existing: str = "fail"
     priority: int = 0
     preset: str = DEFAULT_PRESET
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeConfig:
+    """Fully resolved external-runtime configuration."""
+
+    chdman: str | None = None
 
 
 def _unknown_keys(
@@ -136,6 +145,12 @@ def _decode_toml(data: bytes, source: str) -> dict[str, Any]:
                 f"{source}.planning.priority must be a signed 32-bit integer"
             )
         _priority(priority_value, f"{source}.planning.priority")
+    runtime = value.get("runtime", {})
+    if not isinstance(runtime, dict):
+        raise ConfigurationError(f"{source}.runtime must be a table")
+    _unknown_keys(runtime, _RUNTIME_KEYS, f"{source}.runtime")
+    if "chdman" in runtime:
+        _string(runtime["chdman"], f"{source}.runtime.chdman")
     return value
 
 
@@ -201,6 +216,15 @@ def _output_dir(value: object, cwd: str, location: str) -> str:
     if not os.path.isabs(path):
         path = os.path.join(cwd, path)
     return os.path.abspath(os.path.normpath(path))
+
+
+def _runtime_command(value: object, cwd: str, location: str) -> str:
+    command = _string(value, location)
+    expanded = os.path.expanduser(command)
+    has_directory = os.path.dirname(expanded) != ""
+    if has_directory and not os.path.isabs(expanded):
+        expanded = os.path.join(cwd, expanded)
+    return os.path.abspath(os.path.normpath(expanded)) if has_directory else expanded
 
 
 def resolve_config(
@@ -285,11 +309,51 @@ def resolve_config(
     )
 
 
+def resolve_runtime_config(
+    *,
+    chdman: str | os.PathLike[str] | None = None,
+    config_path: str | os.PathLike[str] | None = None,
+    environ: Mapping[str, str] | None = None,
+    cwd: str | os.PathLike[str] | None = None,
+) -> RuntimeConfig:
+    """Resolve explicit, environment, TOML, and default runtime layers."""
+
+    environment = dict(os.environ if environ is None else environ)
+    unknown_environment = sorted(
+        key
+        for key in environment
+        if key.startswith("CHDMANPY_") and key not in _ENVIRONMENT_KEYS
+    )
+    if unknown_environment:
+        raise ConfigurationError(
+            "environment contains unknown chdmanpy keys: "
+            + ", ".join(unknown_environment)
+        )
+    working_directory = os.path.abspath(
+        os.fspath(cwd) if cwd is not None else os.getcwd()
+    )
+    selected: object | None = None
+    if config_path is not None:
+        file_value = _config_file(config_path, working_directory)
+        selected = file_value.get("runtime", {}).get("chdman")
+    if "CHDMANPY_CHDMAN" in environment:
+        selected = environment["CHDMANPY_CHDMAN"]
+    if chdman is not None:
+        selected = os.fspath(chdman)
+    if selected is None:
+        return RuntimeConfig()
+    return RuntimeConfig(
+        chdman=_runtime_command(selected, working_directory, "CHDMAN executable")
+    )
+
+
 __all__ = [
     "DEFAULT_PRESET",
     "PRESET_NAMES",
     "FormatConfig",
     "PlanningConfig",
+    "RuntimeConfig",
     "load_preset",
     "resolve_config",
+    "resolve_runtime_config",
 ]
