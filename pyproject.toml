@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "chdmanpy"
+version = "0.1.0"
+description = "A pipeline-friendly command-line frontend for CHDMAN"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "bohemon" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = []
+
+[project.scripts]
+chdmanpy = "chdmanpy.cli:entrypoint"
+
+[project.urls]
+Homepage = "https://github.com/bohemon/chdmanpy"
+Documentation = "https://github.com/bohemon/chdmanpy/blob/main/README.md"
+Issues = "https://github.com/bohemon/chdmanpy/issues"
+Source = "https://github.com/bohemon/chdmanpy"
+
+[tool.hatch.build]
+skip-excluded-dirs = true
+exclude = [
+  "/.agents",
+  "/.git",
+  "/.github",
+  "/.idea",
+  "/.venv",
+  "/.vscode",
+  "/build",
+  "/dist",
+  "/input",
+  "/output",
+  "/test",
+  "**/.mypy_cache",
+  "**/.pytest_cache",
+  "**/.ruff_cache",
+  "**/__pycache__",
+  "**/*.exe",
+  "**/*.py[cod]",
+  "**/chdman",
+  "**/mame*.zip",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/src/chdmanpy",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chdmanpy"]
