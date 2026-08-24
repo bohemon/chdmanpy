@@ -79,6 +79,16 @@ def main(argv: list[str] | None = None) -> int:
             cwd=root,
             environment=environment,
         )
+        module_plan_help = _run(
+            [str(python), "-m", "chdmanpy", "plan", "--help"],
+            cwd=root,
+            environment=environment,
+        )
+        console_plan_help = _run(
+            [str(console), "plan", "--help"],
+            cwd=root,
+            environment=environment,
+        )
         preset_smoke = (
             "from chdmanpy.config import load_preset;"
             "names=('others','ps2','psp');"
@@ -95,6 +105,10 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError(
                 "installed entry points returned unexpected versions: "
                 f"module={module_version!r}, console={console_version!r}"
+            )
+        if module_plan_help != console_plan_help:
+            raise RuntimeError(
+                "installed console and module entry points expose different plan help"
             )
     return 0
 
