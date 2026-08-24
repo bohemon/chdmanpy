@@ -18,7 +18,13 @@ from chdmanpy.config import FormatConfig, PlanningConfig
 from chdmanpy.errors import ContractError, ExitCode, RunnerError
 from chdmanpy.jsonl import dump_json_lines
 from chdmanpy.planner import plan_jobs
-from chdmanpy.runner import RunnerOptions, run_jobs, run_manifest, staging_path_for
+from chdmanpy.runner import (
+    RunnerOptions,
+    _owner_bytes,
+    run_jobs,
+    run_manifest,
+    staging_path_for,
+)
 
 
 def _jobs(
@@ -173,7 +179,8 @@ def test_nonzero_failure_retains_owned_partial_staging(
     assert result["status"] == "failed"
     assert result["chdman_exit_code"] == 23
     assert _retained_output(result).read_text(encoding="utf-8") == "partial"
-    assert (Path(result["staging_path"]) / ".chdmanpy-owner").is_file()
+    marker = Path(result["staging_path"]) / ".chdmanpy-owner"
+    assert marker.read_bytes() == _owner_bytes("test-run", result["job_id"])
     assert sources[0].read_bytes() == b"iso-0"
 
 

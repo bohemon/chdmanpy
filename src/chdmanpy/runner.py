@@ -224,7 +224,11 @@ def _claim_staging(staging: str, run_id: str, job_id: str) -> _StageOwnership:
     descriptor = -1
     marker_metadata: os.stat_result | None = None
     try:
-        descriptor = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        descriptor = os.open(
+            marker,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0),
+            0o600,
+        )
         marker_metadata = os.fstat(descriptor)
         contents = _owner_bytes(run_id, job_id)
         offset = 0
