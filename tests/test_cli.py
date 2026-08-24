@@ -16,9 +16,18 @@ class CliContractTests(unittest.TestCase):
         run = parser.parse_args(["run", "--manifest", "-"])
         self.assertEqual(run.manifest, "-")
         convert = parser.parse_args(
-            ["convert", "--arcshuttle-results", "-", "--preset", "ps2"]
+            [
+                "convert",
+                "--arcshuttle-results",
+                "-",
+                "--on-upstream-error",
+                "skip",
+                "--preset",
+                "ps2",
+            ]
         )
         self.assertEqual(convert.arcshuttle_results, "-")
+        self.assertEqual(convert.on_upstream_error, "skip")
 
     def test_no_command_prints_help_without_reading_stdin(self) -> None:
         stdout = io.StringIO()
@@ -46,6 +55,15 @@ class CliContractTests(unittest.TestCase):
                 self.assertEqual(main(arguments), ExitCode.USAGE)
             self.assertEqual(stdout.getvalue(), "")
             self.assertIn("select exactly one", stderr.getvalue())
+
+    def test_upstream_policy_is_only_valid_for_arcshuttle_input(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            exit_code = main(["plan", "/input", "--on-upstream-error", "skip"])
+        self.assertEqual(exit_code, ExitCode.USAGE)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("valid only with --arcshuttle-results", stderr.getvalue())
 
     def test_diagnostics_never_pollute_stdout(self) -> None:
         stdout = io.StringIO()

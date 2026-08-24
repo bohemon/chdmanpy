@@ -45,6 +45,15 @@ def _add_input_arguments(parser: argparse.ArgumentParser) -> None:
 def _add_planning_arguments(parser: argparse.ArgumentParser) -> None:
     _add_input_arguments(parser)
     parser.add_argument(
+        "--on-upstream-error",
+        choices=("fail", "skip"),
+        default="fail",
+        help=(
+            "ArcShuttle policy: reject the complete run, or retain only finalized "
+            "successful roots and require a warning exit"
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         metavar="DIR",
         help="root directory for planned CHD outputs",
@@ -68,6 +77,10 @@ def _validate_input_selector(arguments: argparse.Namespace) -> None:
         raise CliUsageError(
             "select exactly one input source: PATH..., --files-from, "
             "--files0-from, or --arcshuttle-results"
+        )
+    if arguments.arcshuttle_results is None and arguments.on_upstream_error != "fail":
+        raise CliUsageError(
+            "--on-upstream-error is valid only with --arcshuttle-results"
         )
 
 

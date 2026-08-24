@@ -126,8 +126,8 @@ def load_direct_inputs(
 ) -> list[str]:
     """Read exactly one direct selector and return normalized absolute paths.
 
-    ArcShuttle result ingestion is intentionally not part of this function; its
-    schema-v2 adapter supplies roots to the same planner in a later integration layer.
+    ArcShuttle result ingestion is intentionally not part of this function; the
+    independent schema-v2 adapter supplies roots to the same planner.
     """
 
     selected = sum((bool(paths), files_from is not None, files0_from is not None))
