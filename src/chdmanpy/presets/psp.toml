@@ -1,0 +1,2 @@
+[options]
+".iso" = ["createdvd", "-hs", "2048", "-c", "zstd"]

@@ -79,6 +79,18 @@ def main(argv: list[str] | None = None) -> int:
             cwd=root,
             environment=environment,
         )
+        preset_smoke = (
+            "from chdmanpy.config import load_preset;"
+            "names=('others','ps2','psp');"
+            "formats={name:set(load_preset(name)) for name in names};"
+            "expected={'others':{'.cue'},'ps2':{'.cue','.iso'},'psp':{'.iso'}};"
+            "raise SystemExit(0 if formats == expected else repr(formats))"
+        )
+        _run(
+            [str(python), "-c", preset_smoke],
+            cwd=root,
+            environment=environment,
+        )
         if module_version != EXPECTED_VERSION or console_version != EXPECTED_VERSION:
             raise RuntimeError(
                 "installed entry points returned unexpected versions: "
