@@ -29,4 +29,24 @@ class CliUsageError(ChdmanpyError):
     """Raised for invalid command-line syntax or command selection."""
 
 
-__all__ = ["ChdmanpyError", "CliUsageError", "ContractError", "ExitCode"]
+class ConfigurationError(ChdmanpyError, ValueError):
+    """Raised when configuration is missing, malformed, or unsafe."""
+
+
+class InputError(ChdmanpyError, ValueError):
+    """Raised when a direct input selector or path list is invalid."""
+
+
+class PlanningError(ChdmanpyError, ValueError):
+    """Raised when filesystem inputs cannot produce a safe job plan."""
+
+
+__all__ = [
+    "ChdmanpyError",
+    "CliUsageError",
+    "ConfigurationError",
+    "ContractError",
+    "ExitCode",
+    "InputError",
+    "PlanningError",
+]
