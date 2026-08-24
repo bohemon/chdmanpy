@@ -5,7 +5,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from conftest import FakeChdman
@@ -627,3 +627,182 @@ def test_interrupted_run_emits_complete_result_stream_with_exit_130(
     assert emitted_results[0]["status"] == "interrupted"
     assert emitted_summary["interrupted"] == 1
     assert captured.err == ""
+
+
+def test_full_fake_child_interruption_emits_results_and_returns_130(
+    tmp_path: Path,
+    fake_chdman_factory: Callable[[dict[str, Any]], FakeChdman],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    jobs, _ = _manifest(tmp_path)
+    source = jobs[0]["source"]["path"]
+    manifest = tmp_path / "jobs.jsonl"
+    _write_manifest(manifest, jobs)
+    fake = fake_chdman_factory(
+        {"by_input": {source: {"delay_seconds": 30, "partial_output_text": "partial"}}}
+    )
+    _select_fake(monkeypatch, fake)
+
+    def interrupt_after_child_start(*args: object, **kwargs: object) -> None:
+        fake.wait_until_running(timeout=10, expected_input_path=source)
+        raise KeyboardInterrupt
+
+    with patch("chdmanpy.runner.wait", side_effect=interrupt_after_child_start):
+        exit_code = cli.main(
+            [
+                "run",
+                "--manifest",
+                str(manifest),
+                "--workers",
+                "1",
+                "--log-dir",
+                str(tmp_path / "logs"),
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert exit_code == ExitCode.INTERRUPTED
+    results, summary = validate_result_stream(_records(captured.out))
+    assert results[0]["status"] == "interrupted"
+    assert summary["interrupted"] == 1
+    assert fake.read_record()["state"] == "interrupted"
+    assert "Traceback" not in captured.err
+
+
+@pytest.mark.parametrize("command", ["run", "convert"])
+def test_execution_commands_reject_missing_chdman_before_work(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+) -> None:
+    jobs, source_dir = _manifest(tmp_path)
+    missing = tmp_path / "missing-tools" / "chdman"
+    log_dir = tmp_path / f"{command}-logs"
+    if command == "run":
+        manifest = tmp_path / "jobs.jsonl"
+        _write_manifest(manifest, jobs)
+        arguments = ["run", "--manifest", str(manifest)]
+    else:
+        arguments = [
+            "convert",
+            str(source_dir),
+            "--preset",
+            "ps2",
+            "--output-dir",
+            str(tmp_path / "convert-output"),
+        ]
+
+    exit_code = cli.main(
+        [*arguments, "--chdman", str(missing), "--log-dir", str(log_dir)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == ExitCode.USAGE
+    assert captured.out == ""
+    assert "was not found or is not executable" in captured.err
+    assert not log_dir.exists()
+
+
+def test_equivalent_direct_manifest_and_arcshuttle_workflows(
+    tmp_path: Path,
+    fake_chdman_factory: Callable[[dict[str, Any]], FakeChdman],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source_dir = tmp_path / "equivalent root"
+    source_dir.mkdir()
+    source = source_dir / "disc 日本語.iso"
+    source.write_bytes(b"iso")
+    outputs = {
+        "direct": tmp_path / "direct-output",
+        "manifest": tmp_path / "manifest-output",
+        "arc": tmp_path / "arc-output",
+    }
+
+    def select_fresh_fake() -> None:
+        _select_fake(monkeypatch, fake_chdman_factory({}))
+
+    select_fresh_fake()
+    direct_exit = cli.main(
+        [
+            "convert",
+            str(source_dir),
+            "--preset",
+            "ps2",
+            "--output-dir",
+            str(outputs["direct"]),
+            "--log-dir",
+            str(tmp_path / "direct-logs"),
+        ]
+    )
+    direct_capture = capsys.readouterr()
+
+    plan_exit = cli.main(
+        [
+            "plan",
+            str(source_dir),
+            "--preset",
+            "ps2",
+            "--output-dir",
+            str(outputs["manifest"]),
+        ]
+    )
+    plan_capture = capsys.readouterr()
+    manifest = tmp_path / "planned.jsonl"
+    manifest.write_text(plan_capture.out, encoding="utf-8", newline="\n")
+    select_fresh_fake()
+    run_exit = cli.main(
+        [
+            "run",
+            "--manifest",
+            str(manifest),
+            "--log-dir",
+            str(tmp_path / "manifest-logs"),
+        ]
+    )
+    run_capture = capsys.readouterr()
+
+    arc_stream = tmp_path / "arc-results.jsonl"
+    _write_arc_stream(
+        arc_stream,
+        [_arc_result(tmp_path, 0, status="success", output_path=source_dir)],
+    )
+    select_fresh_fake()
+    arc_exit = cli.main(
+        [
+            "convert",
+            "--arcshuttle-results",
+            str(arc_stream),
+            "--preset",
+            "ps2",
+            "--output-dir",
+            str(outputs["arc"]),
+            "--log-dir",
+            str(tmp_path / "arc-logs"),
+        ]
+    )
+    arc_capture = capsys.readouterr()
+
+    assert [direct_exit, plan_exit, run_exit, arc_exit] == [
+        ExitCode.SUCCESS,
+        ExitCode.SUCCESS,
+        ExitCode.SUCCESS,
+        ExitCode.SUCCESS,
+    ]
+    workflow_records = [
+        validate_result_stream(_records(capture.out))
+        for capture in (direct_capture, run_capture, arc_capture)
+    ]
+    semantics = []
+    for name, (results, summary) in zip(outputs, workflow_records, strict=True):
+        semantics.append(
+            (
+                results[0]["source_path"],
+                Path(results[0]["output_path"]).relative_to(outputs[name]),
+                results[0]["status"],
+                summary["success"],
+                summary["failed"],
+            )
+        )
+    assert semantics[0] == semantics[1] == semantics[2]
