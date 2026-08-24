@@ -12,8 +12,21 @@ chdmanpyはPython 3.11以降のWindowsとLinuxをsupportします。公開済み
 pipx install chdmanpy
 ```
 
-source checkoutでは`pipx install .`を使います。`chdmanpy`と
-`python -m chdmanpy`は同じinterfaceを公開します。
+offlineまたはversion固定installでは、projectのGitHub Releaseからuniversal wheelを
+downloadし、公開されたSHA-256 digestを検証してから、検証済みlocal fileをinstallします。
+
+```console
+pipx install ./chdmanpy-0.1.0-py3-none-any.whl
+```
+
+source checkoutでは`pipx install .`を使います。pipxではなく通常のvirtual environmentを
+使う場合は、環境を作成・activateし、
+`python -m pip install ./chdmanpy-0.1.0-py3-none-any.whl`でrelease wheelをinstallします。
+
+registryからのinstallは`pipx upgrade chdmanpy`、activate済みvirtual environmentでは
+`python -m pip install --upgrade chdmanpy`でupgradeします。削除にはそれぞれ
+`pipx uninstall chdmanpy`または`python -m pip uninstall chdmanpy`を使います。
+`chdmanpy`と`python -m chdmanpy`は同じinterfaceを公開します。
 
 CHDMANは外部runtime要件です。別途installした上で、`--chdman`、
 `CHDMANPY_CHDMAN`、`[runtime].chdman`、`PATH`の順で選択します。chdmanpyは
@@ -118,18 +131,19 @@ PowerShell 7では次のように接続できます。
 & arcshuttle extract --output-dir .\extracted .\game.zip |
     & chdmanpy convert --arcshuttle-results - --output-dir .\chd --preset ps2 |
     Set-Content -Encoding utf8NoBOM .\results.jsonl
+$pipelineSucceeded = $?
 $chdmanpyStatus = $LASTEXITCODE
+if (-not $pipelineSucceeded) { exit 1 }
 exit $chdmanpyStatus
 ```
 
-PowerShell pipeline直後に`$LASTEXITCODE`を保存し、その値を返してください。
-`Set-Content`はpipeline最後のcommandなので、`$?`は直前のchdmanpy failureではなく
-cmdletのsuccessを示す場合があります。`$LASTEXITCODE`は、別のnative processを実行する
-まで直近のnative process statusを保持します。direct形式は簡潔ですが、`pipefail`は
-supportするshellにpipeline failureを報告するだけです。producer exitをchdmanpyへ伝えず、
-downstream変換が始まらなかったことも保証しません。ArcShuttle schema-v2 summaryにも
-producer process exitは含まれません。ArcShuttle processがcleanに終了したことまで必要な
-場合は、変換前に出力を保存してexitを確認します。
+PowerShell pipeline直後に`$?`と`$LASTEXITCODE`の両方を保存してください。
+`$pipelineSucceeded`は`Set-Content` failureを検出し、`$chdmanpyStatus`は別のnative
+processを実行するまで直近のnative process statusを保持します。direct形式は簡潔ですが、
+`pipefail`はsupportするshellにpipeline failureを報告するだけです。producer exitを
+chdmanpyへ伝えず、downstream変換が始まらなかったことも保証しません。ArcShuttle
+schema-v2 summaryにもproducer process exitは含まれません。ArcShuttle processがcleanに
+終了したことまで必要な場合は、変換前に出力を保存してexitを確認します。
 
 安全なPOSIX handoff:
 
@@ -176,7 +190,10 @@ if ($arcshuttle.ExitCode -ne 0) {
 
 & chdmanpy convert --arcshuttle-results $arcResults `
     --output-dir .\chd --preset ps2 > .\results.jsonl
-exit $LASTEXITCODE
+$conversionSucceeded = $?
+$chdmanpyStatus = $LASTEXITCODE
+if (-not $conversionSucceeded) { exit 1 }
+exit $chdmanpyStatus
 ```
 
 既定の`--on-upstream-error fail`は、finalized successでないresultまたはwarningを1件でも
@@ -197,6 +214,15 @@ diagnostic、選択したCHDMAN/version、run log pathはstderrへ出力しま�
 してstreamせず、run logへ記録します。CHDMANのstdout/stderrはresultごとの`log_path`に
 記録します。既定では最初に計画されたdestinationのparent以下の`.chdmanpy-logs` treeへ
 保存します。別のrootには`--log-dir`を使います。
+
+JSON Lines consumerはEOFまで読み、末尾の`summary`を必須としてください。途中の
+`success` resultだけではinvocation完了を意味しません。result statusの意味は次のとおりです。
+
+- `success`: 検証済みCHDをcleanにpublishしました。
+- `warning`: jobは完了しましたがwarningがあります。
+- `failed`: jobがfailureとなり、owned stagingを保持した場合があります。
+- `skipped`: jobを意図的に実行しませんでした。
+- `interrupted`: interruptにより完了前または実行中に停止しました。
 
 各変換はprivateなsibling `.failed` staging directoryへ書き、検証済みCHDを上書きなしで
 publishします。成功したowned stagingは削除します。failureまたはinterrupt時のowned

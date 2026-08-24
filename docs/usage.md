@@ -12,8 +12,23 @@ installation for a published release is:
 pipx install chdmanpy
 ```
 
-Use `pipx install .` in a source checkout. Both `chdmanpy` and
-`python -m chdmanpy` expose the same interface.
+For an offline or pinned installation, download the universal wheel from the
+project's GitHub Release, verify its published SHA-256 digest, then install the
+verified local file:
+
+```console
+pipx install ./chdmanpy-0.1.0-py3-none-any.whl
+```
+
+Use `pipx install .` in a source checkout. To use a conventional virtual
+environment instead of pipx, create and activate it, then install the release
+wheel with `python -m pip install ./chdmanpy-0.1.0-py3-none-any.whl`.
+
+Upgrade a registry installation with `pipx upgrade chdmanpy`, or
+`python -m pip install --upgrade chdmanpy` in an activated virtual environment.
+Remove it with `pipx uninstall chdmanpy`, or `python -m pip uninstall chdmanpy`
+in that environment. Both `chdmanpy` and `python -m chdmanpy` expose the same
+interface.
 
 CHDMAN is an external runtime prerequisite. Install it separately, then select
 it with `--chdman`, `CHDMANPY_CHDMAN`, `[runtime].chdman`, or `PATH`, in that
@@ -122,19 +137,20 @@ The equivalent PowerShell 7 pipeline is:
 & arcshuttle extract --output-dir .\extracted .\game.zip |
     & chdmanpy convert --arcshuttle-results - --output-dir .\chd --preset ps2 |
     Set-Content -Encoding utf8NoBOM .\results.jsonl
+$pipelineSucceeded = $?
 $chdmanpyStatus = $LASTEXITCODE
+if (-not $pipelineSucceeded) { exit 1 }
 exit $chdmanpyStatus
 ```
 
-Save `$LASTEXITCODE` immediately after the PowerShell pipeline and return that
-value. `Set-Content` is the final pipeline command, so `$?` can describe that
-cmdlet's success rather than the preceding chdmanpy failure; `$LASTEXITCODE`
-preserves the most recent native process status until another native process is
-run. These direct forms are convenient, but `pipefail` only makes a supporting
-shell report a failing pipeline. It does not communicate the producer exit to
-chdmanpy, nor guarantee that downstream conversion did not start. ArcShuttle's
-schema-v2 summary also does not contain the producer process exit. If a clean
-ArcShuttle process exit is required, capture and check it before conversion.
+Save both `$?` and `$LASTEXITCODE` immediately after the PowerShell pipeline.
+`$pipelineSucceeded` detects a `Set-Content` failure; `$chdmanpyStatus` preserves
+the most recent native process status until another native process is run. These
+direct forms are convenient, but `pipefail` only makes a supporting shell report
+a failing pipeline. It does not communicate the producer exit to chdmanpy, nor
+guarantee that downstream conversion did not start. ArcShuttle's schema-v2
+summary also does not contain the producer process exit. If a clean ArcShuttle
+process exit is required, capture and check it before conversion.
 
 Safe POSIX handoff:
 
@@ -181,7 +197,10 @@ if ($arcshuttle.ExitCode -ne 0) {
 
 & chdmanpy convert --arcshuttle-results $arcResults `
     --output-dir .\chd --preset ps2 > .\results.jsonl
-exit $LASTEXITCODE
+$conversionSucceeded = $?
+$chdmanpyStatus = $LASTEXITCODE
+if (-not $conversionSucceeded) { exit 1 }
+exit $chdmanpyStatus
 ```
 
 The default `--on-upstream-error fail` rejects the complete ArcShuttle stream if
@@ -205,6 +224,16 @@ Execution events are written to the run log rather than streamed as progress.
 CHDMAN stdout and stderr are captured in the `log_path` recorded for each
 result. By default logs are placed in a `.chdmanpy-logs` tree beneath the first
 planned destination's parent; use `--log-dir` to choose another root.
+
+JSON Lines consumers must read through EOF and require the terminal `summary`;
+an early successful `result` does not mean the invocation completed. Result
+statuses mean:
+
+- `success`: the verified CHD was published cleanly;
+- `warning`: the job completed but reported a warning;
+- `failed`: the job failed and may report retained owned staging;
+- `skipped`: the job was intentionally not executed; and
+- `interrupted`: interruption prevented or stopped completion.
 
 Each conversion writes into a private sibling `.failed` staging directory and
 publishes a verified CHD without overwriting the destination. Successful owned

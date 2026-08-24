@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from pathlib import Path
 
 EXPECTED_VERSION = "chdmanpy 0.1.0\n"
@@ -20,6 +21,14 @@ EXPECTED_SDIST_DOCUMENTS = {
     "docs/usage.ja.md",
     "docs/usage.md",
     "install-chdman.ps1",
+}
+EXPECTED_WHEEL_DOCUMENTS = {
+    "chdmanpy/docs/arcshuttle-schema-v2.ja.md",
+    "chdmanpy/docs/arcshuttle-schema-v2.md",
+    "chdmanpy/docs/schema-v1.md",
+    "chdmanpy/docs/testing.md",
+    "chdmanpy/docs/usage.ja.md",
+    "chdmanpy/docs/usage.md",
 }
 
 
@@ -58,6 +67,13 @@ def main(argv: list[str] | None = None) -> int:
     wheel = wheels[0]
     if not wheel.name.endswith("-py3-none-any.whl"):
         raise RuntimeError(f"expected a universal Python wheel, found {wheel.name}")
+    with zipfile.ZipFile(wheel) as archive:
+        missing_wheel_documents = EXPECTED_WHEEL_DOCUMENTS - set(archive.namelist())
+    if missing_wheel_documents:
+        raise RuntimeError(
+            "wheel is missing required documentation: "
+            + ", ".join(sorted(missing_wheel_documents))
+        )
     source_distributions = sorted(distribution_directory.glob("*.tar.gz"))
     if len(source_distributions) != 1:
         raise RuntimeError(

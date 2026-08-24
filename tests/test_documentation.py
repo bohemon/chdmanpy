@@ -51,6 +51,12 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
 
     required_contract_terms = (
         "pipx install chdmanpy",
+        "pipx install ./chdmanpy-0.1.0-py3-none-any.whl",
+        "pipx upgrade chdmanpy",
+        "pipx uninstall chdmanpy",
+        "python -m pip install --upgrade chdmanpy",
+        "python -m pip uninstall chdmanpy",
+        "virtual environment",
         "python -m chdmanpy",
         "chdmanpy plan",
         "chdmanpy run",
@@ -61,6 +67,8 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
         "pipefail",
         "```bash\nset -o pipefail",
         "$chdmanpyStatus = $LASTEXITCODE",
+        "$pipelineSucceeded = $?",
+        "if (-not $pipelineSucceeded) { exit 1 }",
         "exit $chdmanpyStatus",
         "stdout",
         "stderr",
@@ -69,6 +77,13 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
         "install-chdman.ps1",
         "python chdmanpy.py",
         "--temp-dir",
+        "`success`",
+        "`warning`",
+        "`failed`",
+        "`skipped`",
+        "`interrupted`",
+        "EOF",
+        "`summary`",
     )
     missing_terms = [term for term in required_contract_terms if term not in text]
     assert not missing_terms, f"{document.name} omits contract terms: {missing_terms}"
@@ -96,6 +111,28 @@ def test_usage_manual_covers_the_complete_public_cli(document: Path) -> None:
     assert not missing_configuration, (
         f"{document.name} omits aligned configuration: {missing_configuration}"
     )
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["plan", "./input", "--output-dir", "./chd", "--preset", "ps2"],
+        ["run", "--manifest", "jobs.jsonl"],
+        ["convert", "./input", "--output-dir", "./chd", "--preset", "ps2"],
+        [
+            "convert",
+            "--arcshuttle-results",
+            "-",
+            "--output-dir",
+            "./chd",
+            "--preset",
+            "ps2",
+        ],
+    ],
+)
+def test_documented_command_examples_parse(arguments: list[str]) -> None:
+    parsed = build_parser().parse_args(arguments)
+    assert parsed.command == arguments[0]
 
 
 def test_readmes_describe_the_packaged_pipeline_interface() -> None:
