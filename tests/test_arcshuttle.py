@@ -301,7 +301,12 @@ def test_interrupted_v032_results_allow_started_and_unstarted_shapes(
             ),
             "staging",
         ),
-        (lambda records: records[0].update(output_dir="/different"), "aliases"),
+        (
+            lambda records: records[0].update(
+                output_dir=str(Path(records[0]["output_path"]).with_name("different"))
+            ),
+            "aliases",
+        ),
         (
             lambda records: records[0].update(assigned_threads=2),
             "must not exceed assigned_cpu_tokens",
