@@ -16,14 +16,16 @@ chdmanpyは、CHDMANをpipelineから利用しやすくするcommand-line fronte
 
 ## install
 
-公開済みreleaseは、隔離された環境へinstallします。
+固定したv0.1.0 tagをGitHubから隔離環境へ直接installします。
 
 ```console
-pipx install chdmanpy
+pipx install "chdmanpy @ git+https://github.com/bohemon/chdmanpy.git@v0.1.0"
+chdmanpy --version
 ```
 
-source checkoutからinstallする場合は`pipx install .`を使います。chdmanpyを
-installしてもCHDMANやArcShuttleはinstallされません。
+package indexでreleaseが公開されている場合は`pipx install chdmanpy`を使えます。
+source checkoutからinstallする場合は`pipx install .`を使います。tagged-source形式には
+Gitが必要です。chdmanpyをinstallしてもCHDMANやArcShuttleはinstallされません。
 
 ## quick start
 

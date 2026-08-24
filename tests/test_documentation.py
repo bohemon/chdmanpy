@@ -15,7 +15,11 @@ DOCUMENTS = (
     *sorted((ROOT / "docs").glob("*.md")),
 )
 USAGE_DOCUMENTS = (ROOT / "docs" / "usage.md", ROOT / "docs" / "usage.ja.md")
+INSTALL_DOCUMENTS = (ROOT / "README.md", ROOT / "README.ja.md", *USAGE_DOCUMENTS)
 LINK_RE = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+)\)")
+TAGGED_INSTALL = (
+    'pipx install "chdmanpy @ git+https://github.com/bohemon/chdmanpy.git@v0.1.0"'
+)
 DOCUMENTED_EXAMPLES = (
     (
         "chdmanpy plan ./input --output-dir ./chd --preset ps2 >jobs.jsonl",
@@ -162,6 +166,13 @@ def test_readmes_describe_the_packaged_pipeline_interface() -> None:
         assert "unzip_zip_files" not in text
         assert "_extracted" not in text
         assert "release-notes-0.1.0.md" in text
+
+
+@pytest.mark.parametrize("document", INSTALL_DOCUMENTS, ids=lambda path: path.name)
+def test_installation_documents_pin_the_tagged_source_url(document: Path) -> None:
+    text = document.read_text(encoding="utf-8")
+    assert text.count(TAGGED_INSTALL) == 1
+    assert "chdmanpy.git@main" not in text
 
 
 def test_metadata_readme_uses_absolute_links_for_pypi() -> None:

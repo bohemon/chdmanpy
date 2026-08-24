@@ -6,12 +6,15 @@
 
 ## installとruntime要件
 
-chdmanpyはPython 3.11以降のWindowsとLinuxをsupportします。公開済みreleaseの
-推奨install方法は次のとおりです。
+chdmanpyはPython 3.11以降のWindowsとLinuxをsupportします。source checkoutを
+用意せず再現可能なinstallを行うには、固定したv0.1.0 tagをGitHubから直接使います。
 
 ```console
-pipx install chdmanpy
+pipx install "chdmanpy @ git+https://github.com/bohemon/chdmanpy.git@v0.1.0"
 ```
+
+このtagged-source形式にはGitが必要です。package indexでreleaseが公開されている場合は
+`pipx install chdmanpy`を使えます。
 
 offlineまたはversion固定installでは、projectのGitHub Releaseからuniversal wheelを
 downloadし、公開されたSHA-256 digestを検証してから、検証済みlocal fileをinstallします。
@@ -24,7 +27,7 @@ source checkoutでは`pipx install .`を使います。pipxではなく通常の
 使う場合は、環境を作成・activateし、
 `python -m pip install ./chdmanpy-0.1.0-py3-none-any.whl`でrelease wheelをinstallします。
 
-registryからのinstallは`pipx upgrade chdmanpy`、activate済みvirtual environmentでは
+package indexからのinstallは`pipx upgrade chdmanpy`、activate済みvirtual environmentでは
 `python -m pip install --upgrade chdmanpy`でupgradeします。削除にはそれぞれ
 `pipx uninstall chdmanpy`または`python -m pip uninstall chdmanpy`を使います。
 `chdmanpy`と`python -m chdmanpy`は同じinterfaceを公開します。

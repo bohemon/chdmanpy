@@ -6,12 +6,16 @@
 
 ## Installation and runtime requirements
 
-chdmanpy supports Windows and Linux with Python 3.11 or later. The recommended
-installation for a published release is:
+chdmanpy supports Windows and Linux with Python 3.11 or later. Install the
+pinned v0.1.0 tag directly from GitHub for a reproducible installation without
+a source checkout:
 
 ```console
-pipx install chdmanpy
+pipx install "chdmanpy @ git+https://github.com/bohemon/chdmanpy.git@v0.1.0"
 ```
+
+This tagged-source form requires Git. The package-index form is
+`pipx install chdmanpy` when a release is available there.
 
 For an offline or pinned installation, download the universal wheel from the
 project's GitHub Release, verify its published SHA-256 digest, then install the
@@ -25,7 +29,7 @@ Use `pipx install .` in a source checkout. To use a conventional virtual
 environment instead of pipx, create and activate it, then install the release
 wheel with `python -m pip install ./chdmanpy-0.1.0-py3-none-any.whl`.
 
-Upgrade a registry installation with `pipx upgrade chdmanpy`, or
+Upgrade a package-index installation with `pipx upgrade chdmanpy`, or
 `python -m pip install --upgrade chdmanpy` in an activated virtual environment.
 Remove it with `pipx uninstall chdmanpy`, or `python -m pip uninstall chdmanpy`
 in that environment. Both `chdmanpy` and `python -m chdmanpy` expose the same

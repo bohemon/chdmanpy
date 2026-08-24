@@ -17,14 +17,16 @@ ZIP files nor invokes ArcShuttle.
 
 ## Installation
 
-Install a published release in an isolated environment:
+Install the pinned v0.1.0 tag directly from GitHub in an isolated environment:
 
 ```console
-pipx install chdmanpy
+pipx install "chdmanpy @ git+https://github.com/bohemon/chdmanpy.git@v0.1.0"
+chdmanpy --version
 ```
 
-From a source checkout, use `pipx install .`. Installing chdmanpy does not
-install CHDMAN or ArcShuttle.
+The package-index form is `pipx install chdmanpy` when a release is available
+there. From a source checkout, use `pipx install .`. Installing chdmanpy does
+not install CHDMAN or ArcShuttle. The tagged-source form requires Git.
 
 ## Quick start
 
